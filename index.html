@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Bresenham 演示</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: linear-gradient(to right, #e0f7fa, #e3f2fd);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "Segoe UI", Arial, sans-serif;
+        }
+        canvas {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            cursor: crosshair;
+        }
+        .hint {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #1565c0;
+            font-weight: 600;
+            background: rgba(255,255,255,0.9);
+            padding: 6px 10px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="1920" height="1080"></canvas>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const CANVAS_W = canvas.width;
+        const CANVAS_H = canvas.height;
+
+        let points = []; 
+        function drawBackground() {
+            ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
+            ctx.strokeStyle = "#bbb";
+            ctx.lineWidth = 1;
+            // 中心坐标轴（可视辅助）
+            ctx.beginPath();
+            ctx.moveTo(0, CANVAS_H/2);
+            ctx.lineTo(CANVAS_W, CANVAS_H/2);
+            ctx.moveTo(CANVAS_W/2, 0);
+            ctx.lineTo(CANVAS_W/2, CANVAS_H);
+            ctx.stroke();
+        }
+
+        function drawMarker(x, y, color, size=4) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawPixels(pointsData) {
+            ctx.fillStyle = "#ef5350";
+            pointsData.forEach(p => {
+                ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+            });
+        }
+
+        canvas.addEventListener("click", async (evt) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.round(evt.clientX - rect.left);
+            const y = Math.round(evt.clientY - rect.top);
+
+            points.push({x, y});
+            drawMarker(x, y, points.length === 1 ? "#00c853" : "#2196f3", 4);
+
+            if (points.length === 2) {
+                try {
+                    const body = {
+                        x1: points[0].x,
+                        y1: points[0].y,
+                        x2: points[1].x,
+                        y2: points[1].y
+                    };
+                    const resp = await fetch("http://127.0.0.1:5000/bresenham", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body)
+                    });
+                    if (!resp.ok) throw new Error("网络请求失败: " + resp.status);
+                    const data = await resp.json();
+
+                    drawPixels(data);
+                    drawMarker(points[0].x, points[0].y, "#00c853", 5);
+                    drawMarker(points[1].x, points[1].y, "#2196f3", 5);
+                } catch (err) {
+                    console.error(err);
+                    alert("请求失败，检查后端是否在运行（http://127.0.0.1:5000）。");
+                } finally {
+                    points = [];
+                }
+            }
+        });
+
+        drawBackground();
+    </script>
+</body>
+</html>
