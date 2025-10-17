@@ -4,7 +4,6 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# 将所有直线按条保存为列表的栈，每条直线为一个点列表
 LINES = []
 
 def flatten_lines():
@@ -52,17 +51,39 @@ def get_points():
 
     new_points = bresenham(x1, y1, x2, y2)
 
-    # 将整条直线作为一个 list 入栈
     LINES.append(new_points)
-    # 返回所有直线的扁平点列表，供前端一次性绘制
     return jsonify(flatten_lines())
 
-# 返回当前所有直线的扁平点列表
+def rectangle_points(x1, y1, x2, y2):
+    x1 = int(x1); y1 = int(y1); x2 = int(x2); y2 = int(y2)
+    top = bresenham(x1, y1, x2, y1)
+    right = bresenham(x2, y1, x2, y2)
+    bottom = bresenham(x2, y2, x1, y2)
+    left = bresenham(x1, y2, x1, y1)
+
+    pts = []
+    pts.extend(top)
+    pts.extend(right)
+    pts.extend(bottom)
+    pts.extend(left)
+    return pts
+
+@app.route("/rectangle", methods=["POST"])
+def make_rectangle():
+    data = request.json
+    x1 = int(data["x1"])
+    y1 = int(data["y1"])
+    x2 = int(data["x2"])
+    y2 = int(data["y2"])
+
+    new_points = rectangle_points(x1, y1, x2, y2)
+    LINES.append(new_points)
+    return jsonify(flatten_lines())
+
 @app.route("/lines", methods=["GET"])
 def get_all_lines():
     return jsonify(flatten_lines())
 
-# 撤销（弹出）最后一条直线，返回更新后的扁平点列表
 @app.route("/undo", methods=["POST"])
 def undo():
     if LINES:

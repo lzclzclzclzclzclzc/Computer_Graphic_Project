@@ -48,12 +48,19 @@
             cursor: pointer;
             box-shadow: 0 2px 6px rgba(0,0,0,0.04);
         }
+        .controls button.active {
+            background: #2196f3;
+            color: white;
+            border-color: #1976d2;
+        }
     </style>
 </head>
 <body>
     <canvas id="canvas" width="1920" height="1080"></canvas>
 
     <div class="controls">
+        <button id="modeLine" class="active">直线</button>
+        <button id="modeRect">长方形</button>
         <button id="undoBtn">Undo</button>
     </div>
 
@@ -63,7 +70,10 @@
         const CANVAS_W = canvas.width;
         const CANVAS_H = canvas.height;
         const undoBtn = document.getElementById("undoBtn");
+        const modeLineBtn = document.getElementById("modeLine");
+        const modeRectBtn = document.getElementById("modeRect");
 
+        let mode = "line"; 
         let points = []; 
         function drawBackground() {
             ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
@@ -112,6 +122,20 @@
             }
         }
 
+        // 简单按钮样式切换
+        function setMode(m) {
+            mode = m;
+            if (mode === "line") {
+                modeLineBtn.classList.add("active");
+                modeRectBtn.classList.remove("active");
+            } else {
+                modeRectBtn.classList.add("active");
+                modeLineBtn.classList.remove("active");
+            }
+        }
+        modeLineBtn.addEventListener("click", () => setMode("line"));
+        modeRectBtn.addEventListener("click", () => setMode("rect"));
+
         canvas.addEventListener("click", async (evt) => {
             const rect = canvas.getBoundingClientRect();
             const x = Math.round(evt.clientX - rect.left);
@@ -128,7 +152,9 @@
                         x2: points[1].x,
                         y2: points[1].y
                     };
-                    const resp = await fetch("http://127.0.0.1:5000/bresenham", {
+                    // 根据当前模式调用不同后端接口
+                    const endpoint = mode === "line" ? "http://127.0.0.1:5000/bresenham" : "http://127.0.0.1:5000/rectangle";
+                    const resp = await fetch(endpoint, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(body)
@@ -136,7 +162,7 @@
                     if (!resp.ok) throw new Error("网络请求失败: " + resp.status);
                     const data = await resp.json();
 
-                    // 后端返回所有线的扁平点数组，直接重绘
+                    // 后端返回所有线/形状的扁平点数组，直接重绘
                     redrawAll(data);
                     drawMarker(points[0].x, points[0].y, "#00c853", 5);
                     drawMarker(points[1].x, points[1].y, "#2196f3", 5);
