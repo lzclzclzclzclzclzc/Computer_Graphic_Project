@@ -4,7 +4,14 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-ALL_POINTS = []
+# 将所有直线按条保存为列表的栈，每条直线为一个点列表
+LINES = []
+
+def flatten_lines():
+    pts = []
+    for line in LINES:
+        pts.extend(line)
+    return pts
 
 def bresenham(x1, y1, x2, y2):
     points = []
@@ -45,8 +52,22 @@ def get_points():
 
     new_points = bresenham(x1, y1, x2, y2)
 
-    ALL_POINTS.extend(new_points)
-    return jsonify(ALL_POINTS)
+    # 将整条直线作为一个 list 入栈
+    LINES.append(new_points)
+    # 返回所有直线的扁平点列表，供前端一次性绘制
+    return jsonify(flatten_lines())
+
+# 返回当前所有直线的扁平点列表
+@app.route("/lines", methods=["GET"])
+def get_all_lines():
+    return jsonify(flatten_lines())
+
+# 撤销（弹出）最后一条直线，返回更新后的扁平点列表
+@app.route("/undo", methods=["POST"])
+def undo():
+    if LINES:
+        LINES.pop()
+    return jsonify(flatten_lines())
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True)
