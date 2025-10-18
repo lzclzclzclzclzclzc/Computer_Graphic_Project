@@ -1,197 +1,141 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>Bresenham 演示</title>
-    <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            background: linear-gradient(to right, #e0f7fa, #e3f2fd);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: "Segoe UI", Arial, sans-serif;
-        }
-        canvas {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            cursor: crosshair;
-        }
-        .hint {
-            position: absolute;
-            top: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #1565c0;
-            font-weight: 600;
-            background: rgba(255,255,255,0.9);
-            padding: 6px 10px;
-            border-radius: 6px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-            pointer-events: none;
-        }
-        .controls {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            display: flex;
-            gap: 8px;
-        }
-        .controls button {
-            background: #fff;
-            border: 1px solid #cfd8dc;
-            padding: 6px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-        }
-        .controls button.active {
-            background: #2196f3;
-            color: white;
-            border-color: #1976d2;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>画线演示</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #e0eafc, #cfdef3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    canvas {
+      background: white;
+      border: 2px solid #d1d9e6;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      cursor: crosshair;
+      transition: transform 0.2s ease;
+    }
+
+    canvas:hover {
+      transform: scale(1.01);
+    }
+
+    .controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 10px 12px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(6px);
+    }
+
+    button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #f0f0f0;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover {
+      background: #e0e0e0;
+      transform: translateY(-1px);
+    }
+
+    button.active {
+      background: #4a90e2;
+      color: white;
+      box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+  </style>
 </head>
 <body>
-    <canvas id="canvas" width="1920" height="1080"></canvas>
+  <canvas id="canvas" width="800" height="600"></canvas>
 
-    <div class="controls">
-        <button id="modeLine" class="active">直线</button>
-        <button id="modeRect">长方形</button>
-        <button id="undoBtn">Undo</button>
-    </div>
+  <div class="controls">
+    <button id="lineBtn" class="active">直线</button>
+    <button id="rectBtn">矩形</button>
+    <button id="undoBtn">撤销</button>
+  </div>
 
-    <script>
-        const canvas = document.getElementById("canvas");
-        const ctx = canvas.getContext("2d");
-        const CANVAS_W = canvas.width;
-        const CANVAS_H = canvas.height;
-        const undoBtn = document.getElementById("undoBtn");
-        const modeLineBtn = document.getElementById("modeLine");
-        const modeRectBtn = document.getElementById("modeRect");
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const API = "http://127.0.0.1:5000/api/v1";
+    let mode = "line";
+    let points = [];
 
-        let mode = "line"; 
-        let points = []; 
-        function drawBackground() {
-            ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
-            ctx.strokeStyle = "#bbb";
-            ctx.lineWidth = 1;
-            // 中心坐标轴
-            ctx.beginPath();
-            ctx.moveTo(0, CANVAS_H/2);
-            ctx.lineTo(CANVAS_W, CANVAS_H/2);
-            ctx.moveTo(CANVAS_W/2, 0);
-            ctx.lineTo(CANVAS_W/2, CANVAS_H);
-            ctx.stroke();
-        }
+    async function refresh() {
+      const r = await fetch(`${API}/points`);
+      const pts = await r.json();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "red";
+      pts.forEach(p => ctx.fillRect(p.x, p.y, 1, 1));
+    }
 
-        function drawMarker(x, y, color, size=4) {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        function drawPixels(pointsData) {
-            ctx.fillStyle = "#ef5350";
-            pointsData.forEach(p => {
-                ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
-            });
-        }
-
-        // 根据后端返回的扁平点列表重绘
-        function redrawAll(flatPoints) {
-            drawBackground();
-            if (Array.isArray(flatPoints) && flatPoints.length) {
-                drawPixels(flatPoints);
-            }
-        }
-
-        // 初始化：从后端拉取当前所有线的点并绘制
-        async function fetchAllLines() {
-            try {
-                const resp = await fetch("http://127.0.0.1:5000/lines");
-                if (!resp.ok) throw new Error(resp.status);
-                const data = await resp.json();
-                redrawAll(data);
-            } catch (err) {
-                console.warn("无法获取初始线数据：", err);
-            }
-        }
-
-        // 简单按钮样式切换
-        function setMode(m) {
-            mode = m;
-            if (mode === "line") {
-                modeLineBtn.classList.add("active");
-                modeRectBtn.classList.remove("active");
-            } else {
-                modeRectBtn.classList.add("active");
-                modeLineBtn.classList.remove("active");
-            }
-        }
-        modeLineBtn.addEventListener("click", () => setMode("line"));
-        modeRectBtn.addEventListener("click", () => setMode("rect"));
-
-        canvas.addEventListener("click", async (evt) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = Math.round(evt.clientX - rect.left);
-            const y = Math.round(evt.clientY - rect.top);
-
-            points.push({x, y});
-            drawMarker(x, y, points.length === 1 ? "#00c853" : "#2196f3", 4);
-
-            if (points.length === 2) {
-                try {
-                    const body = {
-                        x1: points[0].x,
-                        y1: points[0].y,
-                        x2: points[1].x,
-                        y2: points[1].y
-                    };
-                    // 根据当前模式调用不同后端接口
-                    const endpoint = mode === "line" ? "http://127.0.0.1:5000/bresenham" : "http://127.0.0.1:5000/rectangle";
-                    const resp = await fetch(endpoint, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(body)
-                    });
-                    if (!resp.ok) throw new Error("网络请求失败: " + resp.status);
-                    const data = await resp.json();
-
-                    // 后端返回所有线/形状的扁平点数组，直接重绘
-                    redrawAll(data);
-                    drawMarker(points[0].x, points[0].y, "#00c853", 5);
-                    drawMarker(points[1].x, points[1].y, "#2196f3", 5);
-                } catch (err) {
-                    console.error(err);
-                    alert("请求失败，检查后端是否在运行（http://127.0.0.1:5000）。");
-                } finally {
-                    points = [];
-                }
-            }
+    canvas.addEventListener("click", async e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.round(e.clientX - rect.left);
+      const y = Math.round(e.clientY - rect.top);
+      points.push({x, y});
+      if (points.length === 2) {
+        const body = JSON.stringify({
+          x1: points[0].x, y1: points[0].y,
+          x2: points[1].x, y2: points[1].y
         });
-
-        // Undo 按钮：调用后端 /undo 接口然后重绘
-        undoBtn.addEventListener("click", async () => {
-            try {
-                const resp = await fetch("http://127.0.0.1:5000/undo", {
-                    method: "POST"
-                });
-                if (!resp.ok) throw new Error(resp.status);
-                const data = await resp.json();
-                redrawAll(data);
-            } catch (err) {
-                console.error("撤销失败：", err);
-                alert("撤销请求失败，检查后端是否在运行。");
-            }
+        const endpoint = mode === "line" ? "lines" : "rectangles";
+        await fetch(`${API}/${endpoint}`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body
         });
+        points = [];
+        await refresh();
+      }
+    });
 
-        // 首次加载
-        fetchAllLines();
-    </script>
+    document.getElementById("undoBtn").onclick = async () => {
+      await fetch(`${API}/undo`, {method:"POST"});
+      await refresh();
+    };
+
+    document.getElementById("lineBtn").onclick = () => {
+      mode = "line";
+      setActive("lineBtn");
+    };
+
+    document.getElementById("rectBtn").onclick = () => {
+      mode = "rect";
+      setActive("rectBtn");
+    };
+
+    function setActive(id) {
+      document.querySelectorAll(".controls button").forEach(btn => btn.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    refresh();
+  </script>
 </body>
 </html>
