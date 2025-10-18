@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>画线演示</title>
+  <title>Painting</title>
   <style>
     * {
       box-sizing: border-box;
@@ -77,7 +77,6 @@
   </div>
 
   <script>
-  // ====== 基础状态 ======
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
   const API = "/api/v1";          // 相对路径，避免跨域/端口问题
@@ -85,7 +84,6 @@
   let points = [];                 // [起点?, 终点?]
   const pixelSize = 2;             // 预览/绘制像素大小（Retina 上更明显）
 
-  // ====== 拉取并绘制后端像素 ======
   async function refresh() {
     try {
       const r = await fetch(`${API}/points`);
@@ -99,14 +97,11 @@
     }
   }
 
-  // ====== 首点预览 ======
   function drawPreviewDot(x, y, color = "#00c853") {
-    // 只画一个小点作为“已选择起点”的反馈
     ctx.fillStyle = color;
     ctx.fillRect(x, y, pixelSize + 1, pixelSize + 1);
   }
 
-  // ====== 画布点击：首点预览 + 次点提交 ======
   canvas.addEventListener("click", async (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = Math.round(e.clientX - rect.left);
@@ -145,7 +140,6 @@
     }
   });
 
-  // ====== 控件事件 ======
   document.getElementById("undoBtn").onclick = async () => {
     try {
       const r = await fetch(`${API}/undo`, { method: "POST" });
