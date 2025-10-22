@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>画线演示</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #e0eafc, #cfdef3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    canvas {
+      background: white;
+      border: 2px solid #d1d9e6;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      cursor: crosshair;
+      transition: transform 0.2s ease;
+    }
+
+    canvas:hover {
+      transform: scale(1.01);
+    }
+
+    .controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 10px 12px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(6px);
+    }
+
+    button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #f0f0f0;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover {
+      background: #e0e0e0;
+      transform: translateY(-1px);
+    }
+
+    button.active {
+      background: #4a90e2;
+      color: white;
+      box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="800" height="600"></canvas>
+
+  <div class="controls">
+    <button id="lineBtn" class="active">直线</button>
+    <button id="rectBtn">矩形</button>
+    <button id="circleBtn">圆</button>
+    <button id="undoBtn">撤销</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const API = "http://127.0.0.1:5000/api/v1";
+    let mode = "line";
+    let points = [];
+
+    async function refresh() {
+      const r = await fetch(`${API}/points`);
+      const pts = await r.json();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "red";
+      pts.forEach(p => ctx.fillRect(p.x, p.y, 1, 1));
+    }
+
+    canvas.addEventListener("click", async e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.round(e.clientX - rect.left);
+  const y = Math.round(e.clientY - rect.top);
+  points.push({x, y});
+
+  const requiredPoints = mode === "circle" ? 3 : 2;
+
+  if (points.length === requiredPoints) {
+    let body;
+    if (mode === "circle") {
+      body = JSON.stringify({
+        x1: points[0].x, y1: points[0].y,
+        x2: points[1].x, y2: points[1].y,
+        x3: points[2].x, y3: points[2].y
+      });
+    } else {
+      body = JSON.stringify({
+        x1: points[0].x, y1: points[0].y,
+        x2: points[1].x, y2: points[1].y
+      });
+    }
+
+    const endpoint = mode === "line"
+      ? "lines"
+      : mode === "rect"
+      ? "rectangles"
+      : "circles";
+
+    await fetch(`${API}/${endpoint}`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body
+    });
+    points = [];
+    await refresh();
+  }
+});
+
+
+    document.getElementById("undoBtn").onclick = async () => {
+      await fetch(`${API}/undo`, {method:"POST"});
+      await refresh();
+    };
+
+    document.getElementById("lineBtn").onclick = () => {
+      mode = "line";
+      setActive("lineBtn");
+    };
+
+    document.getElementById("rectBtn").onclick = () => {
+      mode = "rect";
+      setActive("rectBtn");
+    };
+
+    document.getElementById("circleBtn").onclick = () => {
+    mode = "circle";
+    setActive("circleBtn");
+    };
+
+    function setActive(id) {
+      document.querySelectorAll(".controls button").forEach(btn => btn.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    refresh();
+  </script>
+</body>
+</html>
