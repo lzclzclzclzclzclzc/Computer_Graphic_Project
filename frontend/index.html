@@ -9,11 +9,16 @@
 <body>
   <canvas id="canvas" width="800" height="600"></canvas>
 
-  <div class="controls">
-    <button id="lineBtn" class="active">直线</button>
-    <button id="rectBtn">矩形</button>
-    <button id="undoBtn">撤销</button>
+<div class="controls">
+  <button id="lineBtn" class="active">直线</button>
+  <button id="rectBtn">矩形</button>
+  <button id="undoBtn">撤销</button>
+
+  <div class="color-control">
+    <label for="colorPicker" class="color-label">选择线条颜色</label>
+    <input type="color" id="colorPicker" value="#ff0000" title="选择颜色">
   </div>
+</div>
 
 
   <script type="module" src="/js/main.js"></script>

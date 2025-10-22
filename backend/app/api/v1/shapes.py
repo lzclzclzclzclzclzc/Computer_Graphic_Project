@@ -1,4 +1,3 @@
-# backend/app/api/v1/shapes.py
 from flask import Blueprint, request, jsonify
 from ...domain.scene import Scene
 from ...services.scene_service import SceneService
@@ -9,11 +8,15 @@ svc = SceneService(_scene)
 
 @bp.post("/lines")
 def create_line():
-    return jsonify(svc.add_line(request.get_json(force=True)))
+    data = request.get_json(force=True)
+    color = data.get("color", "#ff0000")  # 默认红色
+    return jsonify(svc.add_line(data, color=color))
 
 @bp.post("/rectangles")
 def create_rectangle():
-    return jsonify(svc.add_rect(request.get_json(force=True)))
+    data = request.get_json(force=True)
+    color = data.get("color", "#ff0000")
+    return jsonify(svc.add_rect(data, color=color))
 
 @bp.get("/points")
 def get_points():
@@ -21,7 +24,7 @@ def get_points():
 
 @bp.get("/lines")
 def lines_explain():
-    return {"hint": "Use POST /api/v1/lines with JSON {x1,y1,x2,y2}."}
+    return {"hint": "Use POST /api/v1/lines with JSON {x1,y1,x2,y2,color}."}
 
 @bp.post("/undo")
 def undo():

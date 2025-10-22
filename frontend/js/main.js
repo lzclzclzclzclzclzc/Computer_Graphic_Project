@@ -5,21 +5,29 @@ let mode = "line";               // "line" | "rect"
 let points = [];                 // [起点?, 终点?]
 const pixelSize = 2;             // 预览/绘制像素大小（Retina 上更明显）
 
+let currentColor = "#ff0000"; // 默认颜色
+document.getElementById("colorPicker").addEventListener("input", (e) => {
+  currentColor = e.target.value;
+});//线条颜色监听
+
 async function refresh() {
   try {
     const r = await fetch(`${API}/points`);
     if (!r.ok) throw new Error(`GET /points ${r.status}`);
     const pts = await r.json();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "red";
-    pts.forEach(p => ctx.fillRect(p.x, p.y, pixelSize, pixelSize));
+
+    pts.forEach(p => {
+      ctx.fillStyle = p.color || "red"; // 固定兜底，不回退到 currentColor
+      ctx.fillRect(p.x, p.y, pixelSize, pixelSize);
+    });
   } catch (err) {
     console.error("刷新失败：", err);
   }
 }
 
 function drawPreviewDot(x, y, color = "#00c853") {
-  ctx.fillStyle = color;
+  ctx.fillStyle = currentColor;
   ctx.fillRect(x, y, pixelSize + 1, pixelSize + 1);
 }
 
@@ -37,7 +45,8 @@ canvas.addEventListener("click", async (e) => {
   points.push({ x, y });
   const payload = {
     x1: points[0].x, y1: points[0].y,
-    x2: points[1].x, y2: points[1].y
+    x2: points[1].x, y2: points[1].y,
+    color: currentColor
   };
   const endpoint = mode === "line" ? "lines" : "rectangles";
 
