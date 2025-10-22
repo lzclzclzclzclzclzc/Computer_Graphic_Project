@@ -1,14 +1,15 @@
 # backend/app/domain/scene.py
 from typing import List, Dict
 from .shapes import Shape
+import copy   # ✅ 新增
 
 Point = Dict[str, int]
 
 class Scene:
     def __init__(self):
         self._shapes: List[Shape] = []
-        self._undo: List[List[Shape]] = []  # 撤销栈
-        self._redo: List[List[Shape]] = []  # 重做栈
+        self._undo: List[List[Shape]] = []
+        self._redo: List[List[Shape]] = []
 
     def add(self, shape: Shape):
         self._snapshot_for_undo()
@@ -18,13 +19,13 @@ class Scene:
     def undo(self):
         if not self._undo:
             return
-        self._redo.append(self._shapes[:])
+        self._redo.append(copy.deepcopy(self._shapes)) #deepcopy
         self._shapes = self._undo.pop()
 
     def redo(self):
         if not self._redo:
             return
-        self._undo.append(self._shapes[:])
+        self._undo.append(copy.deepcopy(self._shapes)) #deepcopy
         self._shapes = self._redo.pop()
 
     def flatten_points(self) -> List[Point]:
@@ -40,7 +41,6 @@ class Scene:
         moved = False
         for s in self._shapes:
             if getattr(s, "id", None) == sid:
-                # Line / Rectangle 都有 x1,y1,x2,y2
                 if hasattr(s, "x1") and hasattr(s, "y1") and hasattr(s, "x2") and hasattr(s, "y2"):
                     s.x1 += dx; s.y1 += dy
                     s.x2 += dx; s.y2 += dy
@@ -55,4 +55,4 @@ class Scene:
         return moved
 
     def _snapshot_for_undo(self):
-        self._undo.append(self._shapes[:])
+        self._undo.append(copy.deepcopy(self._shapes)) #deepcopy
