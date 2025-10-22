@@ -29,3 +29,8 @@ def lines_explain():
 @bp.post("/undo")
 def undo():
     return jsonify(svc.undo())
+
+@bp.post("/move")
+def move_shape():
+    data = request.get_json(force=True)
+    return jsonify(svc.move_shape(data))

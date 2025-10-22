@@ -33,5 +33,26 @@ class Scene:
             pts.extend(s.rasterize())
         return pts
 
+    def move(self, sid: str, dx: int, dy: int) -> bool:
+        if not sid or (dx == 0 and dy == 0):
+            return False
+        self._snapshot_for_undo()
+        moved = False
+        for s in self._shapes:
+            if getattr(s, "id", None) == sid:
+                # Line / Rectangle 都有 x1,y1,x2,y2
+                if hasattr(s, "x1") and hasattr(s, "y1") and hasattr(s, "x2") and hasattr(s, "y2"):
+                    s.x1 += dx; s.y1 += dy
+                    s.x2 += dx; s.y2 += dy
+                    moved = True
+                break
+        if moved:
+            self._redo.clear()
+        else:
+            # 没找到就撤回这次快照
+            if self._undo:
+                self._shapes = self._undo.pop()
+        return moved
+
     def _snapshot_for_undo(self):
         self._undo.append(self._shapes[:])

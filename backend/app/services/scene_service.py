@@ -42,3 +42,10 @@ class SceneService:
 
     def get_points(self) -> List[Dict]:
         return self.scene.flatten_points()
+
+    def move_shape(self, d: Dict) -> List[Dict]:
+        sid = d.get("id")
+        dx = int(d.get("dx", 0))
+        dy = int(d.get("dy", 0))
+        self.scene.move(sid, dx, dy)
+        return self.scene.flatten_points()

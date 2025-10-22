@@ -1,6 +1,7 @@
 # backend/app/domain/shapes.py
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict
+import uuid
 
 Point = Dict[str, int]
 
@@ -27,6 +28,7 @@ def bresenham(x1, y1, x2, y2) -> List[Point]:
 @dataclass
 class Shape:
     color: str = "#ff0000"  # 默认红色
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
     def rasterize(self) -> List[Point]:
         raise NotImplementedError
 
@@ -36,7 +38,7 @@ class Line(Shape):
     x2: int = 0; y2: int = 0
     def rasterize(self) -> List[Point]:
         pts = bresenham(self.x1, self.y1, self.x2, self.y2)
-        return [{"x": p["x"], "y": p["y"], "color": self.color} for p in pts]
+        return [{"x": p["x"], "y": p["y"], "color": self.color,"id": self.id} for p in pts]
 
 @dataclass
 class Rectangle(Shape):
@@ -50,4 +52,4 @@ class Rectangle(Shape):
         edges += bresenham(x_min, y_max, x_max, y_max)
         edges += bresenham(x_min, y_min, x_min, y_max)
         edges += bresenham(x_max, y_min, x_max, y_max)
-        return [{"x": p["x"], "y": p["y"], "color": self.color} for p in edges]
+        return [{"x": p["x"], "y": p["y"], "color": self.color, "id": self.id} for p in edges]
