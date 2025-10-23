@@ -74,3 +74,55 @@ class Rectangle(Shape):
         edges += bresenham(x_max, y_min, x_max, y_max)
         w = max(1, int(self.pen_width))
         return [{"x": p["x"], "y": p["y"], "color": self.color, "id": self.id, "w": w} for p in edges]
+
+@dataclass
+class Circle(Shape):
+    x1: int = 0; y1: int = 0
+    x2: int = 0; y2: int = 0
+    x3: int = 0; y3: int = 0
+
+    def move(self, dx: int, dy: int) -> None:
+        self.x1 += int(dx); self.y1 += int(dy)
+        self.x2 += int(dx); self.y2 += int(dy)
+        self.x3 += int(dx); self.y3 += int(dy)
+
+    def _circumcenter_and_radius(self):
+        x1, y1 = float(self.x1), float(self.y1)
+        x2, y2 = float(self.x2), float(self.y2)
+        x3, y3 = float(self.x3), float(self.y3)
+
+        d = 2 * (x1*(y2 - y3) + x2*(y3 - y1) + x3*(y1 - y2))
+        if abs(d) < 1e-8:
+            return None, None
+
+        ux = ((x1**2 + y1**2)*(y2 - y3) + (x2**2 + y2**2)*(y3 - y1) + (x3**2 + y3**2)*(y1 - y2)) / d
+        uy = ((x1**2 + y1**2)*(x3 - x2) + (x2**2 + y2**2)*(x1 - x3) + (x3**2 + y3**2)*(x2 - x1)) / d
+        cx, cy = ux, uy
+        r = ((cx - x1)**2 + (cy - y1)**2) ** 0.5
+        return cx, cy, r
+
+    def rasterize(self) -> List[Point]:
+        circ = self._circumcenter_and_radius()
+        if circ is None or circ[0] is None:
+            from .shapes import bresenham  # safe import
+            pts = bresenham(self.x1, self.y1, self.x2, self.y2)
+            w = max(1, int(self.pen_width))
+            return [{"x": p["x"], "y": p["y"], "color": self.color, "id": self.id, "w": w} for p in pts]
+
+        cx, cy, r = circ
+        import math
+        n = max(16, min(2000, int(2 * math.pi * max(1.0, r))))  # 使弧长近似为 1 像素
+        pts = []
+        for i in range(n):
+            theta = 2 * math.pi * (i / n)
+            x = int(round(cx + r * math.cos(theta)))
+            y = int(round(cy + r * math.sin(theta)))
+            pts.append({"x": x, "y": y})
+        uniq = []
+        seen = set()
+        for p in pts:
+            key = (p["x"], p["y"])
+            if key not in seen:
+                seen.add(key)
+                uniq.append({"x": p["x"], "y": p["y"], "color": self.color, "id": self.id, "w": max(1, int(self.pen_width))})
+        return uniq

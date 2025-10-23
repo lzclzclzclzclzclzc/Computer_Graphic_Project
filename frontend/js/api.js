@@ -19,6 +19,20 @@ export async function postRect(payload) {
   });
   if (!r.ok) throw new Error(`POST /rectangles ${r.status}`);
 }
+// 其他导出函数并存于同文件
+export async function postCircle(payload) {
+  const res = await fetch("/api/v1/circles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "请求失败" }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function postMove({ id, dx, dy }) {
   const r = await fetch(`${API}/move`, {
     method: "POST", headers: { "Content-Type": "application/json" },

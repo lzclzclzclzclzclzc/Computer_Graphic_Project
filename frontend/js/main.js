@@ -5,7 +5,7 @@ import { rebuildIndex } from "./picker.js";
 import { handleClickLine } from "./tools/line.js";
 import { handleClickRect } from "./tools/rect.js";
 import { handleClickMove } from "./tools/move.js";
-
+import { handleClickCircle } from "./tools/circle.js";
 const canvas = document.getElementById("canvas");
 initRender(canvas);
 
@@ -24,6 +24,7 @@ function updateToolbarActive() {
   const map = {
     line: document.getElementById("lineBtn"),
     rect: document.getElementById("rectBtn"),
+    circle: document.getElementById("circleBtn"),
     move: document.getElementById("moveBtn"),
   };
   // 先清空
@@ -37,7 +38,7 @@ function updateToolbarActive() {
 document.getElementById("lineBtn").onclick = () => state.set({ mode: "line", selectedId: null, moveStart: null, points: [] });
 document.getElementById("rectBtn").onclick = () => state.set({ mode: "rect", selectedId: null, moveStart: null, points: [] });
 document.getElementById("moveBtn").onclick = () => state.set({ mode: "move", selectedId: null, moveStart: null, points: [] });
-
+document.getElementById("circleBtn").onclick = () => state.set({ mode: "circle", selectedId: null, moveStart: null, points: [] });
 document.getElementById("undoBtn").onclick = async () => {
   try { await postUndo(); } catch (e) { console.error("撤销失败：", e); }
   finally { state.set({ points: [], selectedId: null, moveStart: null }); await refresh(); }
@@ -63,6 +64,7 @@ canvas.addEventListener("click", async (e) => {
 
   if (state.mode === "line") return handleClickLine(x, y, refresh);
   if (state.mode === "rect") return handleClickRect(x, y, refresh);
+  if (state.mode === "circle") return handleClickCircle(x, y, refresh);
   if (state.mode === "move") return handleClickMove(x, y, refresh);
 });
 

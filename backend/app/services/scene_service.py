@@ -2,7 +2,7 @@
 import re
 from typing import Dict, List, Optional
 from ..domain.scene import Scene
-from ..domain.shapes import Line, Rectangle
+from ..domain.shapes import Line, Rectangle, Circle
 
 HEX = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
 
@@ -45,6 +45,24 @@ class SceneService:
             pen_width=w,             # <- 同理
         )
         self.scene.add(rect)
+        return self.scene.flatten_points()
+
+    def add_circle(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+        """
+        d 应包含 x1,y1,x2,y2,x3,y3 三个点；color 与 width 可选（由蓝图传入）
+        """
+        c = _pick_color(color)
+        w = _pick_width(width if width is not None else d.get("width"), 1)
+        # 验证并构造 Circle 实例（Circle 类将在 domain.shapes.py 中添加）
+        # Scene.add 将负责把 shape 放入场景
+        circle = Circle(
+            x1=int(d["x1"]), y1=int(d["y1"]),
+            x2=int(d["x2"]), y2=int(d["y2"]),
+            x3=int(d["x3"]), y3=int(d["y3"]),
+            color=c,
+            pen_width=w,
+        )
+        self.scene.add(circle)
         return self.scene.flatten_points()
 
     def undo(self) -> List[Dict]:

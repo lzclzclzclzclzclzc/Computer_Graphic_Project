@@ -34,6 +34,17 @@ def create_rectangle():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+@bp.post("/circles")
+def create_circle():
+    data = request.get_json(force=True)
+    color = data.get("color", "#ff0000")
+    width = max(1, _int(data.get("width", 1), 1))
+    try:
+        result = svc.add_circle(data, color=color, width=width)
+        return jsonify(result), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
 @bp.get("/points")
 def get_points():
     return jsonify(svc.get_points())

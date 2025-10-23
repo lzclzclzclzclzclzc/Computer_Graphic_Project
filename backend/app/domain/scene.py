@@ -39,19 +39,24 @@ class Scene:
             return False
         self._snapshot_for_undo()
         moved = False
+
         for s in self._shapes:
             if getattr(s, "id", None) == sid:
-                if hasattr(s, "x1") and hasattr(s, "y1") and hasattr(s, "x2") and hasattr(s, "y2"):
-                    s.x1 += dx; s.y1 += dy
-                    s.x2 += dx; s.y2 += dy
-                    moved = True
+                # 动态检查所有以 x 或 y 开头的坐标属性（避免遗漏 x3,y3 或 cx,cy）
+                for attr in dir(s):
+                    if attr.startswith("x") and isinstance(getattr(s, attr), (int, float)):
+                        setattr(s, attr, getattr(s, attr) + dx)
+                    elif attr.startswith("y") and isinstance(getattr(s, attr), (int, float)):
+                        setattr(s, attr, getattr(s, attr) + dy)
+                moved = True
                 break
+
         if moved:
             self._redo.clear()
         else:
-            # 没找到就撤回这次快照
             if self._undo:
                 self._shapes = self._undo.pop()
+
         return moved
 
     def _snapshot_for_undo(self):
