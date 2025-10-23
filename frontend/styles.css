@@ -50,10 +50,10 @@ button:hover {
   transform: translateY(-1px);
 }
 
-button.active {
+
+.controls button.active {
   background: #4a90e2;
-  color: white;
-  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+  border-color: #2196f3;
 }
 
 button:active {

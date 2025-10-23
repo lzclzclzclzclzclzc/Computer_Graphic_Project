@@ -24,7 +24,7 @@ def get_points():
 
 @bp.get("/lines")
 def lines_explain():
-    return {"hint": "Use POST /api/v1/lines with JSON {x1,y1,x2,y2,color}."}
+    return {"hint": "Use POST /api/v1/line.js with JSON {x1,y1,x2,y2,color}."}
 
 @bp.post("/undo")
 def undo():

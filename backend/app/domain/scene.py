@@ -1,7 +1,7 @@
 # backend/app/domain/scene.py
 from typing import List, Dict
 from .shapes import Shape
-import copy   # ✅ 新增
+import copy
 
 Point = Dict[str, int]
 
