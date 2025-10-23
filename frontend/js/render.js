@@ -18,7 +18,8 @@ export function drawPreviewDot(x, y, color = "#00c853") {
 export function paintAll() {
   clear();
   for (const p of state.cachedPts) {
-    drawPixel(p.x, p.y, p.color || "red");
+    const size = p.w ? p.w : state.pixelSize;
+    drawPixel(p.x, p.y, p.color || "red",size);
   }
   if (state.selectedId) highlightShape(state.selectedId);
 }

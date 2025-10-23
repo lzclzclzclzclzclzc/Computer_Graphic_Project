@@ -46,6 +46,16 @@ document.getElementById("undoBtn").onclick = async () => {
 const colorEl = document.getElementById("colorPicker");
 if (colorEl) colorEl.addEventListener("input", (e) => state.set({ currentColor: e.target.value }));
 
+const widthEl = document.getElementById("widthPicker");
+const widthLabel = document.getElementById("widthLabel");
+if (widthEl) {
+  widthEl.addEventListener("input", (e) => {
+    const v = parseInt(e.target.value, 10) || 1;
+    state.set({ currentWidth: v });
+    if (widthLabel) widthLabel.textContent = String(v);
+  });
+}
+
 canvas.addEventListener("click", async (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = Math.round(e.clientX - rect.left);

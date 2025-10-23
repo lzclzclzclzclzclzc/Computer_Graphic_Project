@@ -10,7 +10,11 @@ export async function handleClickLine(x, y, refresh) {
   }
   state.points.push({ x, y });
   const [p1, p2] = state.points;
-  await postLine({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, color: state.currentColor });
+  await postLine({
+    x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
+    color: state.currentColor,
+    width: state.currentWidth,
+  });
   state.set({ points: [] });
   await refresh();
 }

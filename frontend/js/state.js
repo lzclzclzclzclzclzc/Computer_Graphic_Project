@@ -4,6 +4,7 @@ export const state = {
   mode: "line",                 // line | rect | move
   pixelSize: 2,
   currentColor: "#ff0000",
+  currentWidth: 2,
   points: [],                   // 临时点击点
   cachedPts: [],                // 后端返回的点
   shapesById: new Map(),        // id -> 点集合

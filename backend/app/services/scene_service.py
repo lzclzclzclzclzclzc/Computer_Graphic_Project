@@ -11,27 +11,38 @@ def _pick_color(c: Optional[str], default: str = "#ff0000") -> str:
         return c.lower()
     return default
 
+def _pick_width(w: Optional[int], fallback: int = 1) -> int:
+    try:
+        v = int(w) if w is not None else fallback
+    except Exception:
+        v = fallback
+    return max(1, min(64, v))  # 简单限幅，避免异常值
+
 class SceneService:
     def __init__(self, scene: Scene):
         self.scene = scene
 
-    # 接收 color（由蓝图那边传入）
-    def add_line(self, d: Dict, color: Optional[str] = None) -> List[Dict]:
+    # 注意：多接一个 width（蓝图会传入），如果没传则从 d["width"] 兜底
+    def add_line(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
         c = _pick_color(color)
+        w = _pick_width(width if width is not None else d.get("width"), 1)
         line = Line(
             x1=int(d["x1"]), y1=int(d["y1"]),
             x2=int(d["x2"]), y2=int(d["y2"]),
-            color=c
+            color=c,
+            pen_width=w,             # <- 关键：把线宽传进图形
         )
         self.scene.add(line)
         return self.scene.flatten_points()
 
-    def add_rect(self, d: Dict, color: Optional[str] = None) -> List[Dict]:
+    def add_rect(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
         c = _pick_color(color)
+        w = _pick_width(width if width is not None else d.get("width"), 1)
         rect = Rectangle(
             x1=int(d["x1"]), y1=int(d["y1"]),
             x2=int(d["x2"]), y2=int(d["y2"]),
-            color=c
+            color=c,
+            pen_width=w,             # <- 同理
         )
         self.scene.add(rect)
         return self.scene.flatten_points()
