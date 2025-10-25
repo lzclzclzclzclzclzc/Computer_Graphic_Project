@@ -6,6 +6,8 @@ import { handleClickLine } from "./tools/line.js";
 import { handleClickRect } from "./tools/rect.js";
 import { handleClickMove } from "./tools/move.js";
 import { handleClickCircle } from "./tools/circle.js";
+import { handleClickBezier } from "./tools/bezier.js";
+
 const canvas = document.getElementById("canvas");
 initRender(canvas);
 
@@ -26,6 +28,8 @@ function updateToolbarActive() {
     rect: document.getElementById("rectBtn"),
     circle: document.getElementById("circleBtn"),
     move: document.getElementById("moveBtn"),
+    bezier: document.getElementById("bezierBtn"),
+    clean: document.getElementById("clearBtn"),
   };
   // 先清空
   document.querySelectorAll(".controls button").forEach(btn => btn.classList.remove("active"));
@@ -47,6 +51,9 @@ document.getElementById("clearBtn").onclick = async () => {
   try { await clearCanvas(); } catch (e) { console.error("清空画布失败：", e); }
   finally { state.set({ points: [], selectedId: null, moveStart: null }); await refresh(); }
 };
+document.getElementById("bezierBtn").onclick = () =>
+  state.set({ mode: "bezier", selectedId: null, moveStart: null, points: [] });
+
 
 const colorEl = document.getElementById("colorPicker");
 if (colorEl) colorEl.addEventListener("input", (e) => state.set({ currentColor: e.target.value }));
@@ -70,6 +77,7 @@ canvas.addEventListener("click", async (e) => {
   if (state.mode === "rect") return handleClickRect(x, y, refresh);
   if (state.mode === "circle") return handleClickCircle(x, y, refresh);
   if (state.mode === "move") return handleClickMove(x, y, refresh);
+  if (state.mode === "bezier") return handleClickBezier(x, y, refresh);
 });
 
 // 状态变化时重画（比如高亮/颜色更改等）

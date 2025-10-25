@@ -2,7 +2,7 @@
 import re
 from typing import Dict, List, Optional
 from ..domain.scene import Scene
-from ..domain.shapes import Line, Rectangle, Circle
+from ..domain.shapes import Line, Rectangle, Circle, Bezier
 
 HEX = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
 
@@ -64,6 +64,20 @@ class SceneService:
         )
         self.scene.add(circle)
         return self.scene.flatten_points()
+    
+    def add_bezier(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+        
+        pts = d.get("points", [])
+        if not isinstance(pts, list) or len(pts) < 2:
+            raise ValueError("Bezier 曲线至少需要两个控制点")
+
+        c = _pick_color(color)
+        w = _pick_width(width if width is not None else d.get("width"), 1)
+
+        bezier = Bezier(points=pts, color=c, pen_width=w)
+        self.scene.add(bezier)
+        return self.scene.flatten_points()
+
 
     def undo(self) -> List[Dict]:
         self.scene.undo()
@@ -82,3 +96,5 @@ class SceneService:
     def clear(self):
         self.scene.clear()
         return self.get_points()
+    
+    

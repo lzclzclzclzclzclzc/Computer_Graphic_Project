@@ -126,3 +126,52 @@ class Circle(Shape):
                 seen.add(key)
                 uniq.append({"x": p["x"], "y": p["y"], "color": self.color, "id": self.id, "w": max(1, int(self.pen_width))})
         return uniq
+
+# ---- n阶 Bézier 曲线 ----
+@dataclass
+class Bezier(Shape):
+    points: List[Point] = field(default_factory=list)
+
+    def move(self, dx: int, dy: int) -> None:
+        """整体平移控制点"""
+        for p in self.points:
+            p["x"] += int(dx)
+            p["y"] += int(dy)
+
+    def _de_casteljau(self, t: float) -> Point:
+        """使用 De Casteljau 算法计算给定 t (0~1) 的点"""
+        pts = [{"x": p["x"], "y": p["y"]} for p in self.points]
+        n = len(pts)
+        for r in range(1, n):  # r 表示层数
+            for i in range(n - r):
+                pts[i]["x"] = (1 - t) * pts[i]["x"] + t * pts[i + 1]["x"]
+                pts[i]["y"] = (1 - t) * pts[i]["y"] + t * pts[i + 1]["y"]
+        return {"x": int(round(pts[0]["x"])), "y": int(round(pts[0]["y"]))}
+
+    def rasterize(self) -> List[Point]:
+        """离散化 Bézier 曲线"""
+        if len(self.points) < 2:
+            return []
+
+        n_samples = max(32, len(self.points) * 50)  # 采样精度
+        pts = []
+        for i in range(n_samples + 1):
+            t = i / n_samples
+            p = self._de_casteljau(t)
+            pts.append(p)
+
+        # 去重 + 附加绘制信息
+        seen = set()
+        uniq = []
+        for p in pts:
+            key = (p["x"], p["y"])
+            if key not in seen:
+                seen.add(key)
+                uniq.append({
+                    "x": p["x"],
+                    "y": p["y"],
+                    "color": self.color,
+                    "id": self.id,
+                    "w": max(1, int(self.pen_width))
+                })
+        return uniq

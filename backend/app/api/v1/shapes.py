@@ -44,7 +44,19 @@ def create_circle():
         return jsonify(result), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    
+@bp.post("/bezier")
+def create_bezier():
+    data = request.get_json(force=True)
+    color = data.get("color", "#ff0000")
+    width = max(1, _int(data.get("width", 1), 1))
 
+    try:
+        result = svc.add_bezier(data, color=color, width=width)
+        return jsonify(result), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    
 @bp.get("/points")
 def get_points():
     return jsonify(svc.get_points())
@@ -67,3 +79,5 @@ def move_shape():
 def clear_canvas():
     points = svc.clear()
     return jsonify(points)
+
+
