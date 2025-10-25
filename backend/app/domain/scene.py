@@ -61,3 +61,10 @@ class Scene:
 
     def _snapshot_for_undo(self):
         self._undo.append(copy.deepcopy(self._shapes)) #deepcopy
+
+    def clear(self):
+        if not self._shapes:  
+            return
+        self._snapshot_for_undo()
+        self._shapes.clear()
+        self._redo.clear()

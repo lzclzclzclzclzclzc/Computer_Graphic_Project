@@ -62,3 +62,8 @@ def move_shape():
     data = request.get_json(force=True) or {}
     ok = svc.move_shape(data)
     return jsonify({"ok": bool(ok)})
+
+@bp.post("/clear")
+def clear_canvas():
+    points = svc.clear()
+    return jsonify(points)

@@ -40,7 +40,22 @@ export async function postMove({ id, dx, dy }) {
   });
   if (!r.ok) throw new Error(`POST /move ${r.status}`);
 }
+
 export async function postUndo() {
   const r = await fetch(`${API}/undo`, { method: "POST" });
   if (!r.ok) throw new Error(`POST /undo ${r.status}`);
+}
+
+// 清空画布
+export async function clearCanvas() {
+  const response = await fetch(`${API}/clear`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+  if (!response.ok) {
+    throw new Error("Failed to clear canvas");
+  }
+  return response.json();
 }

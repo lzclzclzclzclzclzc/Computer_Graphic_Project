@@ -1,4 +1,4 @@
-import { getPoints, postUndo } from "./api.js";
+import { getPoints, postUndo, clearCanvas } from "./api.js";
 import { state, onChange } from "./state.js";
 import { initRender, paintAll } from "./render.js";
 import { rebuildIndex } from "./picker.js";
@@ -41,6 +41,10 @@ document.getElementById("moveBtn").onclick = () => state.set({ mode: "move", sel
 document.getElementById("circleBtn").onclick = () => state.set({ mode: "circle", selectedId: null, moveStart: null, points: [] });
 document.getElementById("undoBtn").onclick = async () => {
   try { await postUndo(); } catch (e) { console.error("撤销失败：", e); }
+  finally { state.set({ points: [], selectedId: null, moveStart: null }); await refresh(); }
+};
+document.getElementById("clearBtn").onclick = async () => {
+  try { await clearCanvas(); } catch (e) { console.error("清空画布失败：", e); }
   finally { state.set({ points: [], selectedId: null, moveStart: null }); await refresh(); }
 };
 

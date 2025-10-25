@@ -78,3 +78,7 @@ class SceneService:
         dy = int(d.get("dy", 0))
         self.scene.move(sid, dx, dy)
         return self.scene.flatten_points()
+    
+    def clear(self):
+        self.scene.clear()
+        return self.get_points()
