@@ -10,6 +10,7 @@ import { handleClickBezier } from "./tools/bezier.js";
 
 const canvas = document.getElementById("canvas");
 initRender(canvas);
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 async function refresh() {
   try {
@@ -77,8 +78,17 @@ canvas.addEventListener("click", async (e) => {
   if (state.mode === "rect") return handleClickRect(x, y, refresh);
   if (state.mode === "circle") return handleClickCircle(x, y, refresh);
   if (state.mode === "move") return handleClickMove(x, y, refresh);
-  if (state.mode === "bezier") return handleClickBezier(x, y, refresh);
 });
+
+canvas.addEventListener("mousedown", async (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.round(e.clientX - rect.left);
+  const y = Math.round(e.clientY - rect.top);
+
+  if (state.mode === "bezier") return handleClickBezier(x, y, e.button, refresh);
+});
+
+
 
 // 状态变化时重画（比如高亮/颜色更改等）
 onChange(() =>{

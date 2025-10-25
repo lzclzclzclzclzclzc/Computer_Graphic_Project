@@ -78,7 +78,6 @@ class SceneService:
         self.scene.add(bezier)
         return self.scene.flatten_points()
 
-
     def undo(self) -> List[Dict]:
         self.scene.undo()
         return self.scene.flatten_points()
