@@ -9,7 +9,7 @@ export async function handleClickBezier(x, y, button, refresh) {
     drawPreviewDot(x, y, state.currentColor); 
   } else if (button === 2) { // 右键：结束绘制
     if (state.points.length < 2) {
-      console.warn("至少需要两个点才能绘制 Bézier 曲线");
+      alert("至少需要两个点才能绘制 Bézier 曲线");
       state.set({ points: [] });
       return;
     }
