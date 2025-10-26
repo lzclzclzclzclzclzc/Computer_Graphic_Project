@@ -175,3 +175,42 @@ class Bezier(Shape):
                     "w": max(1, int(self.pen_width))
                 })
         return uniq
+
+# ---- 任意多边形 ----
+@dataclass
+class Polygon(Shape):
+    points: List[Point] = field(default_factory=list)
+
+    def move(self, dx: int, dy: int) -> None:
+        for p in self.points:
+            p["x"] += int(dx)
+            p["y"] += int(dy)
+
+    def rasterize(self) -> List[Point]:
+        if len(self.points) < 3:
+            return []
+
+        pts: List[Point] = []
+        n = len(self.points)
+        for i in range(n):
+            p1 = self.points[i]
+            p2 = self.points[(i + 1) % n]  
+            edge_pts = bresenham(p1["x"], p1["y"], p2["x"], p2["y"])
+            pts.extend(edge_pts)
+
+        seen = set()
+        uniq = []
+        w = max(1, int(self.pen_width))
+        for p in pts:
+            key = (p["x"], p["y"])
+            if key not in seen:
+                seen.add(key)
+                uniq.append({
+                    "x": p["x"],
+                    "y": p["y"],
+                    "color": self.color,
+                    "id": self.id,
+                    "w": w
+                })
+        return uniq
+    

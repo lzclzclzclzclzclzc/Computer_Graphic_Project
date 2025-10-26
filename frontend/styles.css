@@ -22,16 +22,53 @@ canvas {
 }
 
 .controls {
-  position: absolute;
+  position: fixed;
   top: 20px;
   right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.85);
-  padding: 10px 12px;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(6px);
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.toolbar-row:last-child {
+  border-bottom: none;
+}
+
+.row-label {
+  font-size: 12px;
+  color: #666;
+  min-width: 40px;
+}
+
+.toolbar-row button {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toolbar-row button:hover {
+  background: #f0f0f0;
+}
+
+.toolbar-row button.active {
+  background: #2196f3;
+  color: white;
+  border-color: #1976d2;
 }
 
 button {
@@ -44,12 +81,10 @@ button {
   transition: background 0.2s, transform 0.1s;
 }
 
-
 button:hover {
   background: #e0e0e0;
   transform: translateY(-1px);
 }
-
 
 .controls button.active {
   background: #4a90e2;
@@ -60,7 +95,51 @@ button:active {
   transform: translateY(0);
 }
 
-.controls { display: flex; align-items: center; gap: 8px; }
-.color-control { display: inline-flex; flex-direction: column; align-items: center; margin-left: 12px; }
-.color-label { font-size: 12px; color: #666; margin-bottom: 4px; }
-.color-hint { font-size: 12px; color: #888; margin-top: 4px; }
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-control {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: 12px;
+}
+
+.color-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.color-hint {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.color-control,
+.width-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#colorPicker {
+  width: 40px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+#widthPicker {
+  width: 100px;
+}
+
+#widthLabel {
+  min-width: 20px;
+  text-align: center;
+}

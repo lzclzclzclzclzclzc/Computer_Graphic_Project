@@ -7,6 +7,7 @@ import { handleClickRect } from "./tools/rect.js";
 import { handleClickMove } from "./tools/move.js";
 import { handleClickCircle } from "./tools/circle.js";
 import { handleClickBezier } from "./tools/bezier.js";
+import { handleClickPolygon } from "./tools/polygon.js";
 
 const canvas = document.getElementById("canvas");
 initRender(canvas);
@@ -30,6 +31,7 @@ function updateToolbarActive() {
     circle: document.getElementById("circleBtn"),
     move: document.getElementById("moveBtn"),
     bezier: document.getElementById("bezierBtn"),
+    polygon: document.getElementById("polygonBtn"),
     clean: document.getElementById("clearBtn"),
   };
   // 先清空
@@ -54,7 +56,8 @@ document.getElementById("clearBtn").onclick = async () => {
 };
 document.getElementById("bezierBtn").onclick = () =>
   state.set({ mode: "bezier", selectedId: null, moveStart: null, points: [] });
-
+document.getElementById("polygonBtn").onclick = () =>
+  state.set({ mode: "polygon", selectedId: null, moveStart: null, points: [] });
 
 const colorEl = document.getElementById("colorPicker");
 if (colorEl) colorEl.addEventListener("input", (e) => state.set({ currentColor: e.target.value }));
@@ -86,9 +89,8 @@ canvas.addEventListener("mousedown", async (e) => {
   const y = Math.round(e.clientY - rect.top);
 
   if (state.mode === "bezier") return handleClickBezier(x, y, e.button, refresh);
+  if (state.mode === "polygon") return handleClickPolygon(x, y, e.button, refresh);
 });
-
-
 
 // 状态变化时重画（比如高亮/颜色更改等）
 onChange(() =>{

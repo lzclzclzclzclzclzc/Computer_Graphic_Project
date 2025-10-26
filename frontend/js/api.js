@@ -72,3 +72,17 @@ export async function postBezier(payload) {
   }
   return res.json();
 }
+
+// 绘制任意多边形
+export async function postPolygon(payload) {
+  const res = await fetch(`${API}/polygons`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "请求失败" }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}

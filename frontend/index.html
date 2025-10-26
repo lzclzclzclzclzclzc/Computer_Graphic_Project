@@ -9,24 +9,39 @@
 <body>
   <canvas id="canvas" width="800" height="600"></canvas>
 
-<div class="controls">
-  <button id="lineBtn" class="active">直线</button>
-  <button id="rectBtn">矩形</button>
-  <button id="circleBtn">圆</button>
-  <button id="bezierBtn">Bezier</button>
-  <button id="undoBtn">撤销</button>
-  <button id="moveBtn">移动</button>
-  <button id="clearBtn">清空</button>
+  <div class="controls">
+    <!-- 第一行：图形工具 -->
+    <div class="toolbar-row shapes">
+      <span class="row-label">图形</span>
+      <button id="lineBtn" class="active">直线</button>
+      <button id="rectBtn">矩形</button>
+      <button id="circleBtn">圆</button>
+      <button id="bezierBtn">Bezier</button>
+      <button id="polygonBtn">多边形</button>
+    </div>
 
-  <div class="color-control">
-      <label for="colorPicker" class="color-label">选择线条颜色</label>
-      <input type="color" id="colorPicker" value="#ff0000" title="选择颜色">
-      <label>线宽
-          <input id="widthPicker" type="range" min="1" max="12" value="2" />
-          <span id="widthLabel">2</span>
-      </label>
+    <!-- 第二行：操作工具 -->
+    <div class="toolbar-row operations">
+      <span class="row-label">操作</span>
+      <button id="moveBtn">移动</button>
+      <button id="undoBtn">撤销</button>
+      <button id="clearBtn">清空</button>
+    </div>
+
+    <!-- 第三行：样式控制 -->
+    <div class="toolbar-row styles">
+      <span class="row-label">样式</span>
+      <div class="color-control">
+        <label for="colorPicker">颜色</label>
+        <input type="color" id="colorPicker" value="#ff0000" title="选择颜色">
+      </div>
+      <div class="width-control">
+        <label for="widthPicker">线宽</label>
+        <input id="widthPicker" type="range" min="1" max="12" value="2" />
+        <span id="widthLabel">2</span>
+      </div>
+    </div>
   </div>
-</div>
 
   <script type="module" src="/js/main.js"></script>
 </body>
