@@ -185,3 +185,12 @@ def scale_shape():
 
     ok = svc.scale_shape(shape_id, sx, sy, cx, cy)
     return jsonify({"ok": bool(ok)})
+@bp.post("/transform_begin")
+def transform_begin():
+    svc.begin_transform_session()
+    return jsonify({"ok": True})
+
+@bp.post("/transform_end")
+def transform_end():
+    svc.end_transform_session()
+    return jsonify({"ok": True})

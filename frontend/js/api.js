@@ -129,3 +129,17 @@ export async function clearCanvas() {
   if (!r.ok) throw new Error("Failed to clear canvas");
   return r.json(); // clear() 之后返回新的 flatten_points()
 }
+
+export async function postTransformBegin() {
+  await fetch(`/api/v1/transform_begin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function postTransformEnd() {
+  await fetch(`/api/v1/transform_end`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+}

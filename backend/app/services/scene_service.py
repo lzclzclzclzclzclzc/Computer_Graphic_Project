@@ -129,11 +129,9 @@ class SceneService:
     # -------------------------
     # 变换
     # -------------------------
-    def translate_shape(self, shape_id: str, dx: float, dy: float) -> bool:
-        """
-        平移指定图形。
-        """
-        return self.scene.translate_shape(shape_id, dx, dy)
+    def translate_shape(self, shape_id: str, dx: float, dy: float) -> List[Dict]:
+        pts = self.scene.translate_and_raster(shape_id, dx, dy)
+        return pts
 
     def rotate_shape(self, shape_id: str, theta: float, cx: float, cy: float) -> bool:
         """
@@ -157,3 +155,10 @@ class SceneService:
     def clear(self) -> List[Dict]:
         self.scene.clear()
         return self.scene.flatten_points()
+
+    def begin_transform_session(self):
+        self.scene.begin_batch()
+
+    def end_transform_session(self):
+        self.scene.end_batch()
+

@@ -4,7 +4,7 @@ import { initRender, paintAll } from "./render.js";
 import { rebuildIndex } from "./picker.js";
 import { handleClickLine } from "./tools/line.js";
 import { handleClickRect } from "./tools/rect.js";
-import { handleClickMove, beginMoveDrag } from "./tools/move.js";
+import {  beginMoveDrag } from "./tools/move.js";
 import { handleClickCircle } from "./tools/circle.js";
 import { handleClickBezier } from "./tools/bezier.js";
 import { handleClickPolygon } from "./tools/polygon.js";
@@ -106,7 +106,6 @@ canvas.addEventListener("click", async (e) => {
   if (state.mode === "line")   return handleClickLine(x, y, refresh);
   if (state.mode === "rect")   return handleClickRect(x, y, refresh);
   if (state.mode === "circle") return handleClickCircle(x, y, refresh);
-  if (state.mode === "move")   return handleClickMove(x, y); // 只负责选中
 });
 
 // ------- mousedown --------
@@ -115,6 +114,11 @@ canvas.addEventListener("mousedown", async (e) => {
   const rect = canvas.getBoundingClientRect();
   const x0 = Math.round(e.clientX - rect.left);
   const y0 = Math.round(e.clientY - rect.top);
+
+  if (state.mode === "move") {
+    beginMoveDrag(canvas, x0, y0);
+    return;
+  }
   console.log("[mousedown] mode=", state.mode, "at", x0, y0);
   if (state.mode === "bezier") {
     return handleClickBezier(x0, y0, e.button, refresh);

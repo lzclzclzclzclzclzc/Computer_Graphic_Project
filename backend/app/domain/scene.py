@@ -17,6 +17,7 @@ class Scene:
         # 撤销 / 重做栈。我们直接存快照（_shapes 的深拷贝）。
         self._undo: List[Dict[str, Shape]] = []
         self._redo: List[Dict[str, Shape]] = []
+        self._batch_active: bool = False  # 是否处于一次连续操作中
 
     # ----------------------
     # 内部：拍快照给 undo
@@ -100,23 +101,31 @@ class Scene:
     # ----------------------
     # 变换接口（核心升级）
     # ----------------------
-    def translate_shape(self, shape_id: str, dx: float, dy: float) -> bool:
-        """
-        平移某个 shape。
-        旧版 scene.move() 的语义，但我们现在不暴力改 x1,y1,x2,y2...
-        而是调用 shape.translate() 去更新它的 transform 矩阵。
-        """
-        if shape_id not in self._shapes:
-            return False
-        if dx == 0 and dy == 0:
+    def translate_shape(self, sid: str, dx: float, dy: float) -> bool:
+        if not sid or (dx == 0 and dy == 0):
             return False
 
-        self._snapshot_for_undo()
+        shp = self._shapes.get(sid)
+        if shp is None:
+            return False
 
-        shp = self._shapes[shape_id]
-        shp.translate(dx, dy)
+        # 只有当不在 batch 状态时，才自动 snapshot。
+        # 在拖拽批次中，begin_batch() 会提前拍一次。
+        if not self._batch_active:
+            self._snapshot_for_undo()
+            self._redo.clear()
 
-        self._redo.clear()
+        # 真正改坐标
+        if hasattr(shp, "translate"):
+            shp.translate(dx, dy)
+        else:
+            # fallback：直接改它的坐标属性
+            for attr in dir(shp):
+                if attr.startswith("x") and isinstance(getattr(shp, attr), (int, float)):
+                    setattr(shp, attr, getattr(shp, attr) + dx)
+                elif attr.startswith("y") and isinstance(getattr(shp, attr), (int, float)):
+                    setattr(shp, attr, getattr(shp, attr) + dy)
+
         return True
 
     def rotate_shape(self, shape_id: str, theta_rad: float, cx: float, cy: float) -> bool:
@@ -203,3 +212,25 @@ class Scene:
                 }
             })
         return data
+
+    def begin_batch(self):
+        """
+        标记：我要开始一连串的连续变换（比如拖拽）。
+        我们在这里拍一次快照，供整段操作撤销。
+        """
+        if not self._batch_active:
+            self._snapshot_for_undo()
+            self._batch_active = True
+            # 清 redo，跟普通操作一致
+            self._redo.clear()
+
+    def end_batch(self):
+        """
+        标记：这次连续变换结束了。
+        之后的 translate/rotate/scale 又会开始新的一次操作。
+        """
+        self._batch_active = False
+
+    def translate_and_raster(self, sid: str, dx: float, dy: float) -> List[Point]:
+        self.translate_shape(sid, dx, dy)
+        return self.flatten_points()
