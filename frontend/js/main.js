@@ -1,10 +1,10 @@
-import { getPoints, postUndo, clearCanvas } from "./api.js";
+import { getPoints, postUndo, clearCanvas, postTranslate } from "./api.js";
 import { state, onChange } from "./state.js";
 import { initRender, paintAll } from "./render.js";
 import { rebuildIndex } from "./picker.js";
 import { handleClickLine } from "./tools/line.js";
 import { handleClickRect } from "./tools/rect.js";
-import { handleClickMove } from "./tools/move.js";
+import { handleClickMove, beginMoveDrag } from "./tools/move.js";
 import { handleClickCircle } from "./tools/circle.js";
 import { handleClickBezier } from "./tools/bezier.js";
 import { handleClickPolygon } from "./tools/polygon.js";
@@ -16,9 +16,8 @@ canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 async function refresh() {
   try {
     const pts = await getPoints();
-    state.cachedPts = pts;
+    state.set({ cachedPts: pts }); // 触发重画
     rebuildIndex();
-    paintAll();
   } catch (e) {
     console.error("刷新失败：", e);
   }
@@ -34,33 +33,58 @@ function updateToolbarActive() {
     polygon: document.getElementById("polygonBtn"),
     clean: document.getElementById("clearBtn"),
   };
-  // 先清空
   document.querySelectorAll(".controls button").forEach(btn => btn.classList.remove("active"));
-  // 根据当前状态加高亮
   const el = map[state.mode];
   if (el) el.classList.add("active");
 }
 
-// 事件绑定
-document.getElementById("lineBtn").onclick = () => state.set({ mode: "line", selectedId: null, moveStart: null, points: [] });
-document.getElementById("rectBtn").onclick = () => state.set({ mode: "rect", selectedId: null, moveStart: null, points: [] });
-document.getElementById("moveBtn").onclick = () => state.set({ mode: "move", selectedId: null, moveStart: null, points: [] });
-document.getElementById("circleBtn").onclick = () => state.set({ mode: "circle", selectedId: null, moveStart: null, points: [] });
+// ------- toolbar 按钮事件 --------
+document.getElementById("lineBtn").onclick = () =>
+  state.set({ mode: "line", selectedId: null, moveStart: null, points: [] });
+
+document.getElementById("rectBtn").onclick = () =>
+  state.set({ mode: "rect", selectedId: null, moveStart: null, points: [] });
+
+document.getElementById("moveBtn").onclick = () =>
+  state.set({ mode: "move", selectedId: null, moveStart: null, points: [] });
+
+document.getElementById("circleBtn").onclick = () =>
+  state.set({ mode: "circle", selectedId: null, moveStart: null, points: [] });
+
 document.getElementById("undoBtn").onclick = async () => {
-  try { await postUndo(); } catch (e) { console.error("撤销失败：", e); }
-  finally { state.set({ points: [], selectedId: null, moveStart: null }); await refresh(); }
+  try {
+    await postUndo();
+  } catch (e) {
+    console.error("撤销失败：", e);
+  } finally {
+    state.set({ points: [], selectedId: null, moveStart: null });
+    await refresh();
+  }
 };
+
 document.getElementById("clearBtn").onclick = async () => {
-  try { await clearCanvas(); } catch (e) { console.error("清空画布失败：", e); }
-  finally { state.set({ points: [], selectedId: null, moveStart: null }); await refresh(); }
+  try {
+    await clearCanvas();
+  } catch (e) {
+    console.error("清空画布失败：", e);
+  } finally {
+    state.set({ points: [], selectedId: null, moveStart: null });
+    await refresh();
+  }
 };
+
 document.getElementById("bezierBtn").onclick = () =>
   state.set({ mode: "bezier", selectedId: null, moveStart: null, points: [] });
+
 document.getElementById("polygonBtn").onclick = () =>
   state.set({ mode: "polygon", selectedId: null, moveStart: null, points: [] });
 
 const colorEl = document.getElementById("colorPicker");
-if (colorEl) colorEl.addEventListener("input", (e) => state.set({ currentColor: e.target.value }));
+if (colorEl) {
+  colorEl.addEventListener("input", (e) => {
+    state.set({ currentColor: e.target.value });
+  });
+}
 
 const widthEl = document.getElementById("widthPicker");
 const widthLabel = document.getElementById("widthLabel");
@@ -72,33 +96,44 @@ if (widthEl) {
   });
 }
 
+// ------- click --------
+// 单击：画线/矩形/圆/选中要移动的 shape
 canvas.addEventListener("click", async (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = Math.round(e.clientX - rect.left);
   const y = Math.round(e.clientY - rect.top);
 
-  if (state.mode === "line") return handleClickLine(x, y, refresh);
-  if (state.mode === "rect") return handleClickRect(x, y, refresh);
+  if (state.mode === "line")   return handleClickLine(x, y, refresh);
+  if (state.mode === "rect")   return handleClickRect(x, y, refresh);
   if (state.mode === "circle") return handleClickCircle(x, y, refresh);
-  if (state.mode === "move") return handleClickMove(x, y, refresh);
+  if (state.mode === "move")   return handleClickMove(x, y); // 只负责选中
 });
 
+// ------- mousedown --------
+// 按下：进入多段绘制 (bezier/polygon) 或进入拖拽 (move)
 canvas.addEventListener("mousedown", async (e) => {
   const rect = canvas.getBoundingClientRect();
-  const x = Math.round(e.clientX - rect.left);
-  const y = Math.round(e.clientY - rect.top);
+  const x0 = Math.round(e.clientX - rect.left);
+  const y0 = Math.round(e.clientY - rect.top);
+  console.log("[mousedown] mode=", state.mode, "at", x0, y0);
+  if (state.mode === "bezier") {
+    return handleClickBezier(x0, y0, e.button, refresh);
+  }
+  if (state.mode === "polygon") {
+    return handleClickPolygon(x0, y0, e.button, refresh);
+  }
+  if (state.mode === "move") {
+    return beginMoveDrag(canvas, x0, y0); // <--- 用 tools/move.js 的函数
+  }
 
-  if (state.mode === "bezier") return handleClickBezier(x, y, e.button, refresh);
-  if (state.mode === "polygon") return handleClickPolygon(x, y, e.button, refresh);
 });
 
-// 状态变化时重画（比如高亮/颜色更改等）
-onChange(() =>{
+// 状态变化 -> 视觉更新（高亮/线宽/颜色等）
+onChange(() => {
   updateToolbarActive();
   paintAll();
 });
 
-
-// 首次刷新
+// 第一次加载
 refresh();
 updateToolbarActive();

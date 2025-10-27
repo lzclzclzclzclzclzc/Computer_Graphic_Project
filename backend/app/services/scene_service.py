@@ -1,4 +1,5 @@
 # backend/app/services/scene_service.py
+
 import re
 from typing import Dict, List, Optional
 from ..domain.scene import Scene
@@ -6,55 +7,69 @@ from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon
 
 HEX = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
 
+
 def _pick_color(c: Optional[str], default: str = "#ff0000") -> str:
     if isinstance(c, str) and HEX.match(c):
         return c.lower()
     return default
+
 
 def _pick_width(w: Optional[int], fallback: int = 1) -> int:
     try:
         v = int(w) if w is not None else fallback
     except Exception:
         v = fallback
-    return max(1, min(64, v))  # 简单限幅，避免异常值
+    # 限一下线宽，避免离谱输入
+    return max(1, min(64, v))
+
 
 class SceneService:
     def __init__(self, scene: Scene):
         self.scene = scene
 
-    # 注意：多接一个 width（蓝图会传入），如果没传则从 d["width"] 兜底
+    # -------------------------
+    # 创建各种图形
+    # -------------------------
     def add_line(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+        """
+        期望 d 里有: x1,y1,x2,y2
+        """
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
+
         line = Line(
             x1=int(d["x1"]), y1=int(d["y1"]),
             x2=int(d["x2"]), y2=int(d["y2"]),
             color=c,
-            pen_width=w,             # <- 关键：把线宽传进图形
+            pen_width=w,
         )
         self.scene.add(line)
         return self.scene.flatten_points()
 
     def add_rect(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+        """
+        期望 d 里有: x1,y1,x2,y2  视为对角点
+        """
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
+
         rect = Rectangle(
             x1=int(d["x1"]), y1=int(d["y1"]),
             x2=int(d["x2"]), y2=int(d["y2"]),
             color=c,
-            pen_width=w,             # <- 同理
+            pen_width=w,
         )
         self.scene.add(rect)
         return self.scene.flatten_points()
 
     def add_circle(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
         """
-        d 应包含 x1,y1,x2,y2,x3,y3 三个点；color 与 width 可选（由蓝图传入）
+        期望 d 里有: x1,y1,x2,y2,x3,y3
+        （用三点拟合外接圆）
         """
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
-        # 验证并构造 Circle 实例（Circle 类将在 domain.shapes.py 中添加）
-        # Scene.add 将负责把 shape 放入场景
+
         circle = Circle(
             x1=int(d["x1"]), y1=int(d["y1"]),
             x2=int(d["x2"]), y2=int(d["y2"]),
@@ -64,8 +79,11 @@ class SceneService:
         )
         self.scene.add(circle)
         return self.scene.flatten_points()
-    
+
     def add_bezier(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+        """
+        期望 d["points"] 是 [{x:..., y:...}, ...]
+        """
         pts = d.get("points", [])
         if not isinstance(pts, list) or len(pts) < 2:
             raise ValueError("Bezier requires at least 2 points.")
@@ -76,8 +94,11 @@ class SceneService:
         bezier = Bezier(points=pts, color=c, pen_width=w)
         self.scene.add(bezier)
         return self.scene.flatten_points()
-    
+
     def add_polygon(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+        """
+        期望 d["points"] 是 [{x:..., y:...}, ...] 且至少3点
+        """
         pts = d.get("points", [])
         if not isinstance(pts, list) or len(pts) < 3:
             raise ValueError("Polygon requires at least 3 points.")
@@ -89,24 +110,50 @@ class SceneService:
         self.scene.add(polygon)
         return self.scene.flatten_points()
 
+    # -------------------------
+    # 状态 / 绘制
+    # -------------------------
+    def get_points(self) -> List[Dict]:
+        """
+        展场景，返回像素点（前端画布用）
+        """
+        return self.scene.flatten_points()
 
+    def dump_scene_state(self) -> Dict:
+        """
+        返回整个场景的结构化信息（每个 shape 的几何定义 + 当前 transform 矩阵）
+        用于调试 / 前端显示控制框 / 保存工程
+        """
+        return self.scene.dump_scene_state()
+
+    # -------------------------
+    # 变换
+    # -------------------------
+    def translate_shape(self, shape_id: str, dx: float, dy: float) -> bool:
+        """
+        平移指定图形。
+        """
+        return self.scene.translate_shape(shape_id, dx, dy)
+
+    def rotate_shape(self, shape_id: str, theta: float, cx: float, cy: float) -> bool:
+        """
+        绕 (cx, cy) 旋转指定图形 theta (弧度)。
+        """
+        return self.scene.rotate_shape(shape_id, theta, cx, cy)
+
+    def scale_shape(self, shape_id: str, sx: float, sy: float, cx: float, cy: float) -> bool:
+        """
+        围绕 (cx, cy) 按 (sx, sy) 缩放指定图形。
+        """
+        return self.scene.scale_shape(shape_id, sx, sy, cx, cy)
+
+    # -------------------------
+    # undo / clear
+    # -------------------------
     def undo(self) -> List[Dict]:
         self.scene.undo()
         return self.scene.flatten_points()
 
-    def get_points(self) -> List[Dict]:
-        return self.scene.flatten_points()
-
-    def move_shape(self, d: Dict) -> List[Dict]:
-        sid = d.get("id")
-        dx = int(d.get("dx", 0))
-        dy = int(d.get("dy", 0))
-        self.scene.move(sid, dx, dy)
-        return self.scene.flatten_points()
-    
-    def clear(self):
+    def clear(self) -> List[Dict]:
         self.scene.clear()
-        return self.get_points()
-    
-    
-    
+        return self.scene.flatten_points()
