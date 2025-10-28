@@ -97,7 +97,40 @@ export function beginMoveDrag(canvas, x0, y0) {
         console.error("postTranslate failed:", err);
       });
   }
+//6：滚轮缩放
+  function onWheel(ev) {
+    ev.preventDefault();
+    if (!state.selectedId) return;
+    const delta = ev.deltaY > 0 ? 0.9 : 1.1; // 每次 10%
+    const cx = state.moveStart.x;            // 以鼠标位置为锚点
+    const cy = state.moveStart.y;
 
+    // 发请求
+    fetch("/api/v1/scale", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: state.selectedId, sx: delta, sy: delta, cx, cy})
+    })
+    .then(r => r.json())
+    .then(() => refresh()); // 刷新画布
+}
+
+//7：Shift + 滚轮 旋转
+  function onShiftWheel(ev) {
+    ev.preventDefault();
+    if (!state.selectedId) return;
+    const theta = ev.deltaY > 0 ? -0.1 : 0.1; // 每次 ±0.1 弧度
+    const cx = state.moveStart.x;
+    const cy = state.moveStart.y;
+
+    fetch("/api/v1/rotate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({id: state.selectedId, theta, cx, cy})
+    })
+    .then(r => r.json())
+    .then(() => refresh());
+}
   function onMouseUp() {
     console.log("[onMouseUp] end drag");
 
@@ -135,11 +168,15 @@ export function beginMoveDrag(canvas, x0, y0) {
     // 清理这次拖拽绑定的全局事件
     document.removeEventListener("mousemove", onMouseMove);
     document.removeEventListener("mouseup", onMouseUp);
+    canvas.removeEventListener("wheel", onWheel);
+    canvas.removeEventListener("wheel", onShiftWheel);
   }
 
   // 6. 全局监听鼠标移动 / 松开
   document.addEventListener("mousemove", onMouseMove);
   document.addEventListener("mouseup", onMouseUp);
+  canvas.addEventListener("wheel", onWheel, {passive: false});
+  canvas.addEventListener("wheel", ev => {if (ev.shiftKey) onShiftWheel(ev);}, {passive: false});
 
   console.log("[beginMoveDrag] mouse listeners attached ✅");
 }
