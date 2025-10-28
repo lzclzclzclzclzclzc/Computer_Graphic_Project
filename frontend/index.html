@@ -7,12 +7,22 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <audio id="bgm" src="bgm.mp3" autoplay loop muted></audio>
+  <script>
+    const bgm = document.getElementById('bgm');
+    document.addEventListener('click', () => {
+      bgm.muted = false;
+      bgm.play();
+    });
+  </script>
+
+
   <canvas id="canvas" width="800" height="600"></canvas>
 
 <style>
   canvas {
     background-color: white; 
-    {#background-image: url(' background.png');#}
+    background-image: url('background.png');
     background-repeat: no-repeat;
     background-position: center center;
     background-size: auto 100%;

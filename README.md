@@ -7,7 +7,7 @@ pip install -r requirements.txt
 ```
 ## 启动后端服务器
 ```shell
-python backend/wsgi.py
+python backend.wsgi
 ```
 访问：http://127.0.0.1:5000/
 
