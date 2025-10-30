@@ -194,3 +194,18 @@ def transform_begin():
 def transform_end():
     svc.end_transform_session()
     return jsonify({"ok": True})
+
+# backend/app/shapes.py
+
+@bp.post("/clip_rect")
+def clip_rect():
+    data = request.get_json(force=True) or {}
+    pts = svc.clip_rect(
+        data["id"],
+        float(data["x1"]),
+        float(data["y1"]),
+        float(data["x2"]),
+        float(data["y2"]),
+    )
+    return jsonify(pts)
+
