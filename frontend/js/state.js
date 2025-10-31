@@ -10,6 +10,10 @@ export const state = {
   shapesById: new Map(),        // id -> 点集合
   selectedId: null,
   moveStart: null,
+  baseScale: 1,      // 本次拖拽开始时的缩放
+  baseAngle: 0,      // 本次拖拽开始时的角度
+  cumulativeScale: 1,// 图形当前累计缩放
+  cumulativeAngle: 0, // 图形当前累计角度
   set(patch) { Object.assign(this, patch); emit(); },
 };
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
