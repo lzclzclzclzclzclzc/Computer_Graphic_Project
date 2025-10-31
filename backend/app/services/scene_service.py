@@ -162,3 +162,8 @@ class SceneService:
     def end_transform_session(self):
         self.scene.end_batch()
 
+    def clip_rect(self, shape_id, x1, y1, x2, y2):
+        return self.scene.clip_shape_by_rect_and_raster(shape_id, x1, y1, x2, y2)
+
+
+

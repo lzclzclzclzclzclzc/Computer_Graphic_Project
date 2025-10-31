@@ -2,8 +2,11 @@
 
 from typing import List, Dict, Optional
 import copy
-
+from .shapes import Shape, Polygon
+from .geom import clip_polygon_rect  # <--- 新的
 from .shapes import Shape  # 假设你的 Line / Rectangle / Circle / Bezier / Polygon 都继承了 Shape
+from .shapes import Line, Rectangle, Circle, Bezier, Polygon
+from .geom import Mat2x3, clip_polygon_rect   # clip_polygon_rect 就是你原来用的那个
 
 Point = Dict[str, int]
 
@@ -233,4 +236,250 @@ class Scene:
 
     def translate_and_raster(self, sid: str, dx: float, dy: float) -> List[Point]:
         self.translate_shape(sid, dx, dy)
+        return self.flatten_points()
+
+    def clip_polygon_by_rect(self, shape_id: str,
+                             x1: float, y1: float,
+                             x2: float, y2: float) -> bool:
+        """把指定的 Polygon 用一个轴对齐矩形裁剪"""
+        if shape_id not in self._shapes:
+            return False
+
+        shp = self._shapes[shape_id]
+        if not isinstance(shp, Polygon):
+            # 这里你也可以选择：矩形也转成4点的polygon再裁
+            return False
+
+        # 1. 先把多边形的“局部点”变成“世界坐标点”
+        world_pts = []
+        for p in shp.points:
+            X, Y = shp.transform.apply(p["x"], p["y"])
+            world_pts.append({"x": X, "y": Y})
+
+        # 2. 规范化窗口
+        x_min, x_max = sorted([x1, x2])
+        y_min, y_max = sorted([y1, y2])
+
+        # 3. 真正裁剪
+        clipped = clip_polygon_rect(world_pts, x_min, y_min, x_max, y_max)
+
+        # 4. 拍快照
+        self._snapshot_for_undo()
+
+        if not clipped:
+            # 全剪掉了，就删图形
+            del self._shapes[shape_id]
+            self._redo.clear()
+            return True
+
+        # 5. 用裁好的点生成一个新的 polygon，注意我们让它回到“无变换”的状态
+        new_poly = Polygon(
+            points=clipped,
+            color=shp.color,
+            pen_width=shp.pen_width,
+        )
+        # 覆盖原来的
+        self._shapes[shape_id] = new_poly
+        self._redo.clear()
+        return True
+
+    def clip_polygon_by_rect_and_raster(self, shape_id, x1, y1, x2, y2):
+        ok = self.clip_polygon_by_rect(shape_id, x1, y1, x2, y2)
+        # 不管成不成，一律把当前场景点展平给前端
+        return self.flatten_points()
+
+    from .shapes import Line, Rectangle, Circle, Bezier, Polygon
+    from .geom import Mat2x3, clip_polygon_rect  # clip_polygon_rect 就是你原来用的那个
+
+    def clip_shape_by_rect_and_raster(self, shape_id, x1, y1, x2, y2):
+        """
+        通用裁剪：优先走“多边形版”（你原来那套），
+        不是多边形再按类型慢慢处理，最后一律 flatten_points 返回给前端
+        """
+        shp = self._shapes.get(shape_id)
+        if shp is None:
+            return self.flatten_points()
+
+        # 归一化窗口
+        x_min, x_max = sorted([x1, x2])
+        y_min, y_max = sorted([y1, y2])
+
+        # 1) 如果本来就是 Polygon，就用你原来的那条，别动
+        if isinstance(shp, Polygon):
+            self.clip_polygon_by_rect(shape_id, x1, y1, x2, y2)
+            return self.flatten_points()
+
+        # 2) Line：用简单线段裁剪
+        if isinstance(shp, Line):
+            # 先转世界坐标
+            X1, Y1 = shp.transform.apply(shp.x1, shp.y1)
+            X2, Y2 = shp.transform.apply(shp.x2, shp.y2)
+
+            # Liang–Barsky 简版
+            dx, dy = X2 - X1, Y2 - Y1
+            p = [-dx, dx, -dy, dy]
+            q = [X1 - x_min, x_max - X1, Y1 - y_min, y_max - Y1]
+            u1, u2 = 0.0, 1.0
+            ok = True
+            for pi, qi in zip(p, q):
+                if pi == 0:
+                    if qi < 0:
+                        ok = False
+                        break
+                    continue
+                t = qi / pi
+                if pi < 0:
+                    if t > u2:
+                        ok = False
+                        break
+                    if t > u1:
+                        u1 = t
+                else:
+                    if t < u1:
+                        ok = False
+                        break
+                    if t < u2:
+                        u2 = t
+            self._snapshot_for_undo()
+            if not ok:
+                # 全剪没了
+                del self._shapes[shape_id]
+                self._redo.clear()
+                return self.flatten_points()
+
+            nx1 = X1 + u1 * dx
+            ny1 = Y1 + u1 * dy
+            nx2 = X1 + u2 * dx
+            ny2 = Y1 + u2 * dy
+            # 写回去，清 transform
+            shp.transform = Mat2x3.identity()
+            shp.x1, shp.y1 = nx1, ny1
+            shp.x2, shp.y2 = nx2, ny2
+            self._redo.clear()
+            return self.flatten_points()
+
+        # 3) Rectangle：转成4点多边形再裁
+        if isinstance(shp, Rectangle):
+            # 先取局部四个角
+            l = min(shp.x1, shp.x2)
+            r = max(shp.x1, shp.x2)
+            t = min(shp.y1, shp.y2)
+            b = max(shp.y1, shp.y2)
+            corners = [
+                {"x": l, "y": t},
+                {"x": r, "y": t},
+                {"x": r, "y": b},
+                {"x": l, "y": b},
+            ]
+            # 转世界坐标
+            world = []
+            for c in corners:
+                X, Y = shp.transform.apply(c["x"], c["y"])
+                world.append({"x": X, "y": Y})
+            # 用你原来的裁剪函数
+            clipped = clip_polygon_rect(world, x_min, y_min, x_max, y_max)
+            self._snapshot_for_undo()
+            # 覆盖成 Polygon
+            poly = Polygon(points=clipped, color=shp.color, pen_width=shp.pen_width)
+            poly.id = shp.id
+            self._shapes[shape_id] = poly
+            self._redo.clear()
+            return self.flatten_points()
+
+        if isinstance(shp, Circle):
+            raw = shp.rasterize()
+            world = [{"x": p["x"], "y": p["y"]} for p in raw]
+            clipped = clip_polygon_rect(world, x_min, y_min, x_max, y_max)
+            self._snapshot_for_undo()
+            poly = Polygon(
+                points=clipped,
+                color=shp.color,
+                pen_width=shp.pen_width,
+                closed=True,  # 👈 圆一定要闭合
+            )
+            poly.id = shp.id
+            self._shapes[shape_id] = poly
+            self._redo.clear()
+            return self.flatten_points()
+
+        # 5) Bézier / 曲线：用“折线裁剪”，只留下在窗口里的曲线，不闭合
+        if isinstance(shp, Bezier):
+            # 先拿到世界坐标下的采样点（是按顺序的）
+            samples = shp.rasterize()  # [{'x':..,'y':..}, ...] 世界坐标
+            if not samples or len(samples) < 2:
+                return self.flatten_points()
+
+            xmin, xmax = sorted([x1, x2])
+            ymin, ymax = sorted([y1, y2])
+
+            # 段裁剪：Liang–Barsky，小函数
+            def clip_seg(p1, p2):
+                x1_, y1_ = p1["x"], p1["y"]
+                x2_, y2_ = p2["x"], p2["y"]
+                dx, dy = x2_ - x1_, y2_ - y1_
+                p = [-dx, dx, -dy, dy]
+                q = [x1_ - xmin, xmax - x1_, y1_ - ymin, ymax - y1_]
+                u1, u2 = 0.0, 1.0
+                for pi, qi in zip(p, q):
+                    if pi == 0:
+                        if qi < 0:
+                            return None
+                        continue
+                    t = qi / pi
+                    if pi < 0:
+                        if t > u2:
+                            return None
+                        if t > u1:
+                            u1 = t
+                    else:
+                        if t < u1:
+                            return None
+                        if t < u2:
+                            u2 = t
+                sx = x1_ + u1 * dx
+                sy = y1_ + u1 * dy
+                ex = x1_ + u2 * dx
+                ey = y1_ + u2 * dy
+                return {"x": sx, "y": sy}, {"x": ex, "y": ey}
+
+            self._snapshot_for_undo()
+
+            out_pts = []
+            last_end = None
+
+            for i in range(len(samples) - 1):
+                seg = clip_seg(samples[i], samples[i + 1])
+                if not seg:
+                    continue
+                s, e = seg
+                # 起点
+                if not out_pts:
+                    out_pts.append({"x": int(round(s["x"])), "y": int(round(s["y"]))})
+                else:
+                    # 如果这一段的起点跟上一次的终点不一样，说明中间有一截在外面
+                    # 我们就直接接到新的起点，会是一条直线，这里你愿意的话也可以分成多个 shape
+                    if out_pts[-1]["x"] != int(round(s["x"])) or out_pts[-1]["y"] != int(round(s["y"])):
+                        out_pts.append({"x": int(round(s["x"])), "y": int(round(s["y"]))})
+                # 终点
+                out_pts.append({"x": int(round(e["x"])), "y": int(round(e["y"]))})
+
+            if not out_pts:
+                # 全在外面，删掉就好
+                del self._shapes[shape_id]
+                self._redo.clear()
+                return self.flatten_points()
+
+            # 只对 Bézier 这一支：用不闭合的 polygon
+            poly = Polygon(
+                points=out_pts,
+                color=shp.color,
+                pen_width=shp.pen_width,
+                closed=False,  # 👈 关键：只让曲线不闭合
+            )
+            poly.id = shp.id
+            self._shapes[shape_id] = poly
+            self._redo.clear()
+            return self.flatten_points()
+
+        # 其它类型：先不管，直接返回现状
         return self.flatten_points()

@@ -252,10 +252,16 @@ class Bezier(Shape):
 @dataclass
 class Polygon(Shape):
     points: List[Point] = field(default_factory=list)
+    closed: bool = True   # 默认还是闭合
 
     def rasterize(self) -> List[Point]:
-        if len(self.points) < 3:
-            return []
+        if self.closed:
+            if len(self.points) < 3:
+                return []
+        else:
+            if len(self.points) < 2:
+                return []
+
         world_pts = []
         for p in self.points:
             X, Y = self.transform.apply(p["x"], p["y"])
@@ -263,10 +269,17 @@ class Polygon(Shape):
 
         edges = []
         n = len(world_pts)
-        for i in range(n):
-            p1, p2 = world_pts[i], world_pts[(i+1) % n]
-            edges += bresenham(int(round(p1["x"])), int(round(p1["y"])),
-                               int(round(p2["x"])), int(round(p2["y"])))
+
+        if self.closed:
+            for i in range(n):
+                p1, p2 = world_pts[i], world_pts[(i+1) % n]
+                edges += bresenham(int(round(p1["x"])), int(round(p1["y"])),
+                                   int(round(p2["x"])), int(round(p2["y"])))
+        else:
+            for i in range(n - 1):
+                p1, p2 = world_pts[i], world_pts[i+1]
+                edges += bresenham(int(round(p1["x"])), int(round(p1["y"])),
+                                   int(round(p2["x"])), int(round(p2["y"])))
 
         seen = set()
         uniq = []
@@ -275,5 +288,11 @@ class Polygon(Shape):
             key = (p["x"], p["y"])
             if key not in seen:
                 seen.add(key)
-                uniq.append({"x": p["x"], "y": p["y"], "color": self.color, "id": self.id, "w": w})
+                uniq.append({
+                    "x": p["x"],
+                    "y": p["y"],
+                    "color": self.color,
+                    "id": self.id,
+                    "w": w
+                })
         return uniq

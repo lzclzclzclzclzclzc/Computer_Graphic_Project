@@ -40,3 +40,82 @@ class Mat2x3:
     @staticmethod
     def scale(sx: float, sy: float) -> "Mat2x3":
         return Mat2x3(sx, 0, 0, 0, sy, 0)
+
+def _clip_against_edge(points, inside_fn, intersect_fn):
+    """Sutherland–Hodgman 的单边裁剪"""
+    if not points:
+        return []
+
+    out = []
+    prev = points[-1]
+    prev_inside = inside_fn(prev)
+
+    for curr in points:
+        curr_inside = inside_fn(curr)
+        if prev_inside and curr_inside:
+            # S -> S
+            out.append(curr)
+        elif prev_inside and not curr_inside:
+            # S -> O
+            out.append(intersect_fn(prev, curr))
+        elif (not prev_inside) and curr_inside:
+            # O -> S
+            out.append(intersect_fn(prev, curr))
+            out.append(curr)
+        # O -> O 什么都不加
+        prev, prev_inside = curr, curr_inside
+
+    return out
+
+def clip_polygon_rect(points, x_min, y_min, x_max, y_max):
+    """
+    points: [{'x': float, 'y': float}, ...]  世界坐标
+    return: 裁完后的点，仍然按顺时针/逆时针闭合
+    """
+
+    # 依次对 left, right, bottom, top 裁
+    # left: x >= x_min
+    def inside_left(p): return p["x"] >= x_min
+    def intersect_left(p1, p2):
+        dx = p2["x"] - p1["x"]
+        if dx == 0:
+            return {"x": x_min, "y": p1["y"]}
+        t = (x_min - p1["x"]) / dx
+        return {"x": x_min, "y": p1["y"] + t * (p2["y"] - p1["y"])}
+
+    # right: x <= x_max
+    def inside_right(p): return p["x"] <= x_max
+    def intersect_right(p1, p2):
+        dx = p2["x"] - p1["x"]
+        if dx == 0:
+            return {"x": x_max, "y": p1["y"]}
+        t = (x_max - p1["x"]) / dx
+        return {"x": x_max, "y": p1["y"] + t * (p2["y"] - p1["y"])}
+
+    # bottom: y >= y_min
+    def inside_bottom(p): return p["y"] >= y_min
+    def intersect_bottom(p1, p2):
+        dy = p2["y"] - p1["y"]
+        if dy == 0:
+            return {"x": p1["x"], "y": y_min}
+        t = (y_min - p1["y"]) / dy
+        return {"x": p1["x"] + t * (p2["x"] - p1["x"]), "y": y_min}
+
+    # top: y <= y_max
+    def inside_top(p): return p["y"] <= y_max
+    def intersect_top(p1, p2):
+        dy = p2["y"] - p1["y"]
+        if dy == 0:
+            return {"x": p1["x"], "y": y_max}
+        t = (y_max - p1["y"]) / dy
+        return {"x": p1["x"] + t * (p2["x"] - p1["x"]), "y": y_max}
+
+    out = points
+    out = _clip_against_edge(out, inside_left,   intersect_left)
+    out = _clip_against_edge(out, inside_right,  intersect_right)
+    out = _clip_against_edge(out, inside_bottom, intersect_bottom)
+    out = _clip_against_edge(out, inside_top,    intersect_top)
+
+    # 都被剪没了
+    # 顺便把坐标 round 成 int，跟你 rasterize 的习惯对齐
+    return [{"x": int(round(p["x"])), "y": int(round(p["y"]))} for p in out]

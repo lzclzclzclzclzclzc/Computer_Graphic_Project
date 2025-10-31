@@ -113,6 +113,19 @@ export async function postScale({ id, sx, sy, cx, cy }) {
   return r.json(); // { ok: true/false }
 }
 
+export async function postClipRect(payload) {
+  const r = await fetch("/api/v1/clip_rect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error || `POST /clip_rect ${r.status}`);
+  }
+  return r.json();
+}
+
 // --- undo / clear ---
 
 export async function postUndo() {
