@@ -26,10 +26,16 @@ export function paintAll() {
 export function highlightShape(id) {
   const pts = state.shapesById.get(id);
   if (!pts || !pts.length) return;
+
+  // 外层描边光晕，线宽跟点的 w 绑定
   for (const p of pts) {
-    drawPixel(p.x - 1, p.y - 1, "rgba(33,150,243,0.35)", state.pixelSize + 2);
+    const glowSize = (p.w || state.pixelSize) + 3;
+    drawPixel(p.x - 1, p.y - 1, "rgba(33,150,243,0.3)", glowSize);
   }
+
+  // 原图形
   for (const p of pts) {
-    drawPixel(p.x, p.y, p.color || "red", state.pixelSize);
+    const size = p.w || state.pixelSize;
+    drawPixel(p.x, p.y, p.color || "red", size);
   }
 }
