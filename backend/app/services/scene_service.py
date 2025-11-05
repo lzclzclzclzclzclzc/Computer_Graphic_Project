@@ -3,7 +3,7 @@
 import re
 from typing import Dict, List, Optional
 from ..domain.scene import Scene
-from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon
+from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon, BSpline
 
 HEX = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
 
@@ -109,7 +109,34 @@ class SceneService:
         polygon = Polygon(points=pts, color=c, pen_width=w)
         self.scene.add(polygon)
         return self.scene.flatten_points()
+    
+    def add_bspline(
+        self,
+        d: Dict,
+        degree: Optional[int] = None,
+        color: Optional[str] = None,
+        width: Optional[int] = None
+    ) -> List[Dict]:
+        """
+        期望 d 包含:
+        {
+            "points": [{x:..., y:...}, ...],
+            "degree": n   # 可选，默认为3
+        }
+        """
+        pts = d.get("points", [])
+        if not isinstance(pts, list) or len(pts) < 2:
+            raise ValueError("B-Spline requires at least 2 control points.")
 
+        c = _pick_color(color)
+        w = _pick_width(width if width is not None else d.get("width"), 1)
+
+        bspline = BSpline(points=pts, order = degree + 1, color=c, pen_width=w)
+        self.scene.add(bspline)
+
+        return self.scene.flatten_points()
+
+    
     # -------------------------
     # 状态 / 绘制
     # -------------------------

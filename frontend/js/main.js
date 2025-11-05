@@ -7,6 +7,7 @@ import {  beginMoveDrag } from "./tools/move.js";
 import { handleClickCircle } from "./tools/circle.js";
 import { handleClickBezier } from "./tools/bezier.js";
 import { handleClickPolygon } from "./tools/polygon.js";
+import { handleClickBSpline } from "./tools/BSpline.js";
 import { handleClickClip } from "./tools/clip.js";
 import { rebuildIndex, pickShapeByPoint } from "./picker.js";
 const canvas = document.getElementById("canvas");
@@ -31,6 +32,7 @@ function updateToolbarActive() {
     move: document.getElementById("moveBtn"),
     bezier: document.getElementById("bezierBtn"),
     polygon: document.getElementById("polygonBtn"),
+    bspline: document.getElementById("bsplineBtn"),
     clean: document.getElementById("clearBtn"),
   };
   document.querySelectorAll(".controls button").forEach(btn => btn.classList.remove("active"));
@@ -80,6 +82,9 @@ document.getElementById("clipBtn").onclick = () =>
 document.getElementById("bezierBtn").onclick = () =>
   state.set({ mode: "bezier", selectedId: null, moveStart: null, points: [] });
 
+document.getElementById("bsplineBtn").onclick = () =>
+  state.set({ mode: "bspline", selectedId: null, moveStart: null, points: [] });
+
 document.getElementById("polygonBtn").onclick = () =>
   state.set({ mode: "polygon", selectedId: null, moveStart: null, points: [] });
 
@@ -128,26 +133,27 @@ canvas.addEventListener("mousedown", async (e) => {
   const x0 = Math.round(e.clientX - rect.left);
   const y0 = Math.round(e.clientY - rect.top);
 
-  // 1. move 模式是拖拽，不能被别的逻辑抢走
   if (state.mode === "move") {
     beginMoveDrag(canvas, x0, y0);
     return;
   }
 
-  // 2. bezier 模式：一击一击加控制点
   if (state.mode === "bezier") {
     return handleClickBezier(x0, y0, e.button, refresh);
   }
 
-  // 3. polygon 模式：一击一击加多边形点
   if (state.mode === "polygon") {
     return handleClickPolygon(x0, y0, e.button, refresh);
   }
+
   if (state.mode === "clip") {
   return handleClickClip(x0, y0, e.button, refresh);
-}
+  }
 
-  // 4. clip 模式等会儿这里也要加（下面第2节说）
+  if (state.mode === "bspline") {
+    return handleClickBSpline(x0, y0, e.button, refresh);
+  }
+
 });
 
 // 状态变化 -> 视觉更新（高亮/线宽/颜色等）

@@ -87,8 +87,21 @@ def create_polygon():
         result = svc.add_polygon(data, color=color, width=width)
         return jsonify(result), 201
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}), 400 
+    
 
+@bp.post("/bspline")
+def create_bspline():
+    data = request.get_json(force=True)
+    color = data.get("color", "#ff0000")
+    width = max(1, _int(data.get("width", 1), 1))
+
+    try:
+        degree = _int(data.get("degree", 3), 3)
+        result = svc.add_bspline(data, degree=degree, color=color, width=width)
+        return jsonify(result), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 # -----------------------------
 # 查询 / 状态

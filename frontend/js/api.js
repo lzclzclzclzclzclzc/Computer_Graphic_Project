@@ -65,6 +65,19 @@ export async function postBezier(payload) {
   return r.json();
 }
 
+export async function postBSpline(payload) {
+  const r = await fetch(`${API}/bspline`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: "请求失败" }));
+    throw new Error(err.error || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
 export async function postPolygon(payload) {
   const r = await fetch(`${API}/polygons`, {
     method: "POST",

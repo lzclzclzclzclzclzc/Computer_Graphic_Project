@@ -138,7 +138,7 @@ class Circle(Shape):
         2. 均匀采样圆周点 (局部坐标)
         3. 用 self.transform.apply() 把采样点丢到世界坐标
         4. 去重，返回像素点
-        如果三点共线，fallback 成一条线段（和你原本逻辑一致）
+        如果三点共线，fallback 成一条线段
         """
         circ = self._circumcenter_and_radius_local()
         if circ is None:
@@ -248,6 +248,7 @@ class Bezier(Shape):
                     "w": w
                 })
         return uniq
+    
 # ---- 任意多边形 ----
 @dataclass
 class Polygon(Shape):
@@ -295,4 +296,97 @@ class Polygon(Shape):
                     "id": self.id,
                     "w": w
                 })
+        return uniq
+
+
+@dataclass
+class BSpline(Shape):
+    # 控制点列表（局部坐标），例如：[{"x":0,"y":0}, {"x":1,"y":2}, {"x":3,"y":1}, ...]
+    points: List[Dict[str, float]] = field(default_factory=list)
+    # 阶数 n（由外部输入）
+    order: int = 4  # 默认四阶（即三次B样条）
+
+    def __post_init__(self):
+        # 阶 n → 次数 degree = n - 1
+        self.degree = self.order - 1
+        if len(self.points) < self.degree + 1:
+            raise ValueError(f"B样条控制点数量不足，当前为 {len(self.points)}，至少需要 {self.degree + 1} 个。")
+
+    def _uniform_knot_vector(self, n: int, k: int) -> List[float]:
+        """
+        生成均匀节点向量
+        n: 控制点数量 - 1
+        k: 次数 (degree)
+        """
+        m = n + k + 1  # 节点总数 = n + k + 1
+        # 均匀节点，首尾各重复 k+1 次
+        return [0] * (k + 1) + [i / (m - 2 * k - 1) for i in range(m - 2 * k - 1)] + [1] * (k + 1)
+
+    def _basis(self, i: int, k: int, t: float, knots: List[float]) -> float:
+        """
+        Cox–de Boor 递归定义的B样条基函数 N_{i,k}(t)
+        """
+        if k == 0:
+            return 1.0 if knots[i] <= t < knots[i + 1] else 0.0
+        denom1 = knots[i + k] - knots[i]
+        denom2 = knots[i + k + 1] - knots[i + 1]
+        term1 = ((t - knots[i]) / denom1 * self._basis(i, k - 1, t, knots)) if denom1 != 0 else 0.0
+        term2 = ((knots[i + k + 1] - t) / denom2 * self._basis(i + 1, k - 1, t, knots)) if denom2 != 0 else 0.0
+        return term1 + term2
+
+    def _spline_point_world(self, t: float, world_ctrl_pts: List[Dict[str, float]]) -> Dict[str, int]:
+        """
+        计算参数 t 对应的B样条点（世界坐标）
+        """
+        n = len(world_ctrl_pts) - 1
+        k = self.degree
+        knots = self._uniform_knot_vector(n, k)
+
+        x, y = 0.0, 0.0
+        for i in range(n + 1):
+            Ni = self._basis(i, k, t, knots)
+            x += Ni * world_ctrl_pts[i]["x"]
+            y += Ni * world_ctrl_pts[i]["y"]
+
+        return {"x": int(round(x)), "y": int(round(y))}
+
+    def rasterize(self) -> List[Dict[str, int]]:
+        """
+        1. 控制点 → 世界坐标
+        2. 在 [0,1] 区间上均匀采样
+        3. 去重并返回像素点
+        """
+        if len(self.points) < self.order:
+            return []
+
+        # 1. 映射控制点到世界坐标
+        world_ctrl_pts: List[Dict[str, float]] = []
+        for p in self.points:
+            Xw, Yw = self.transform.apply(p["x"], p["y"])
+            world_ctrl_pts.append({"x": Xw, "y": Yw})
+
+        # 2. 均匀采样
+        n_samples = max(64, len(self.points) * 50)
+        raw_pts = []
+        for i in range(n_samples + 1):
+            t = i / n_samples
+            pt = self._spline_point_world(t, world_ctrl_pts)
+            raw_pts.append(pt)
+
+        # 3. 去重 + 上色
+        seen = set()
+        uniq: List[Dict[str, int]] = []
+        w = max(1, int(self.pen_width))
+        for p in raw_pts:
+            key = (p["x"], p["y"])
+            if key not in seen:
+                seen.add(key)
+                uniq.append({
+                    "x": p["x"],
+                    "y": p["y"],
+                    "color": self.color,
+                    "id": self.id,
+                    "w": w
+                })
+
         return uniq
