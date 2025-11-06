@@ -22,6 +22,9 @@ export function paintAll() {
     drawPixel(p.x, p.y, p.color || "red",size);
   }
   if (state.selectedId) highlightShape(state.selectedId);
+  if (state.rotateCenter) {
+    drawPreviewDot(state.rotateCenter.x, state.rotateCenter.y, "#00ff00");
+  }
 }
 export function highlightShape(id) {
   const pts = state.shapesById.get(id);

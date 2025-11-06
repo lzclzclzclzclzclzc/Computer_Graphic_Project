@@ -14,6 +14,22 @@ const canvas = document.getElementById("canvas");
 initRender(canvas);
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
+canvas.addEventListener("wheel", e => {
+  if (state.mode !== "rotatePoint" || !state.selectedId || !state.rotateCenter) return;
+  e.preventDefault();
+  const theta = e.deltaY > 0 ? 0.1 : -0.1;
+  fetch("/api/v1/rotate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: state.selectedId,
+      theta,
+      cx: state.rotateCenter.x,
+      cy: state.rotateCenter.y
+    })
+  }).then(() => refresh());
+}, { passive: false });
+
 async function refresh() {
   try {
     const pts = await getPoints();
@@ -32,6 +48,7 @@ function updateToolbarActive() {
     move: document.getElementById("moveBtn"),
     bezier: document.getElementById("bezierBtn"),
     polygon: document.getElementById("polygonBtn"),
+    rotatePoint: document.getElementById("rotatePointBtn"),
     bspline: document.getElementById("bsplineBtn"),
     clean: document.getElementById("clearBtn"),
   };
@@ -52,6 +69,9 @@ document.getElementById("moveBtn").onclick = () =>
 
 document.getElementById("circleBtn").onclick = () =>
   state.set({ mode: "circle", selectedId: null, moveStart: null, points: [] });
+
+document.getElementById("rotatePointBtn").onclick = () =>
+  state.set({ mode: "rotatePoint", selectedId: null, moveStart: null, points: [], rotateCenter: null });
 
 document.getElementById("undoBtn").onclick = async () => {
   try {
@@ -123,7 +143,27 @@ canvas.addEventListener("click", async (e) => {
     state.set({ selectedId: hit ? hit.id : null });
   }
 
+  //3.选中点旋转
+  if (state.mode === "rotatePoint") {
+  // 第一下：没中心点 → 设中心
+    if (!state.rotateCenter) {
+      state.set({ rotateCenter: { x, y } });
+      return;
+    }
+  // 第二下：按普通 move/clip 逻辑去“选中”
+    const hit = pickShapeByPoint(x, y, 12);
+    state.set({ selectedId: hit ? hit.id : null });
+    return;
+  }
+
   // 其他模式（bezier / polygon）点一下啥也不做，让它们自己在 mousedown 里处理
+});
+
+//esc监听
+window.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    state.set({ rotateCenter: null });
+  }
 });
 
 // ------- mousedown --------
