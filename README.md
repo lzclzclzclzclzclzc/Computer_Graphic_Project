@@ -9,7 +9,7 @@ pip install -r requirements.txt
 ```shell
 python backend/wsgi.py
 ```
-访问：http://127.0.0.1:5000/
+访问：http://127.0.0.1:5050/
 
 ## 待实现功能
 - 扫描线填充
