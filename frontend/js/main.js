@@ -8,6 +8,7 @@ import { handleClickCircle } from "./tools/circle.js";
 import { handleClickBezier } from "./tools/bezier.js";
 import { handleClickPolygon } from "./tools/polygon.js";
 import { handleClickBSpline } from "./tools/BSpline.js";
+import { handleClickArc } from "./tools/arc.js";
 import { handleClickClip } from "./tools/clip.js";
 import { rebuildIndex, pickShapeByPoint } from "./picker.js";
 const canvas = document.getElementById("canvas");
@@ -50,6 +51,7 @@ function updateToolbarActive() {
     polygon: document.getElementById("polygonBtn"),
     rotatePoint: document.getElementById("rotatePointBtn"),
     bspline: document.getElementById("bsplineBtn"),
+    arc: document.getElementById("arcBtn"),
     clean: document.getElementById("clearBtn"),
   };
   document.querySelectorAll(".controls button").forEach(btn => btn.classList.remove("active"));
@@ -72,6 +74,9 @@ document.getElementById("circleBtn").onclick = () =>
 
 document.getElementById("rotatePointBtn").onclick = () =>
   state.set({ mode: "rotatePoint", selectedId: null, moveStart: null, points: [], rotateCenter: null });
+
+document.getElementById("arcBtn").onclick = () =>
+  state.set({ mode: "arc", selectedId: null, moveStart: null, points: [] });
 
 document.getElementById("undoBtn").onclick = async () => {
   try {
@@ -136,6 +141,7 @@ canvas.addEventListener("click", async (e) => {
   if (state.mode === "line")   return handleClickLine(x, y, refresh);
   if (state.mode === "rect")   return handleClickRect(x, y, refresh);
   if (state.mode === "circle") return handleClickCircle(x, y, refresh);
+  if (state.mode === "arc")    return handleClickArc(x, y, refresh);
 
   // 2. 只有在“操作类模式”下才去选中
   if (state.mode === "move" || state.mode === "clip") {

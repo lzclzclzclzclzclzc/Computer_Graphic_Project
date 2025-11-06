@@ -103,6 +103,18 @@ def create_bspline():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+@bp.post("/arc")
+def create_arc():
+    data = request.get_json(force=True)
+    color = data.get("color", "#ff0000")
+    width = max(1, _int(data.get("width", 1), 1))
+
+    try:
+        result = svc.add_arc(data, color=color, width=width)
+        return jsonify(result), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
 # -----------------------------
 # 查询 / 状态
 # -----------------------------
