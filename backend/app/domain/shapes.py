@@ -393,22 +393,19 @@ class BSpline(Shape):
 
 @dataclass
 class FillBlob(Shape):
-    """
-    承载一批已计算好的像素点；rasterize 直接返回这些点。
-    pixels: List[{"x","y","color","id","w"}]；color 可以是 '#rrggbb' 或 (r,g,b,a)
-    """
+    # 存“基准像素”（创建时的绝对坐标），移动/旋转/缩放靠 transform
     pixels: List[Dict] = field(default_factory=list)
 
     def rasterize(self) -> List[Dict]:
-        # 将像素规范化为你的统一结构；维持原色，不做变换
         out = []
-        w = max(1, int(self.pen_width))
+        w = max(1, int(self.pen_width or 1))
         for p in self.pixels:
+            x, y = self.transform.apply(p["x"], p["y"])  # 应用变换
             out.append({
-                "x": int(p["x"]),
-                "y": int(p["y"]),
-                "color": p.get("color", self.color),  # 已有颜色优先
-                "id": self.id,
-                "w": p.get("w", w),
+                "x": int(round(x)),
+                "y": int(round(y)),
+                "color": p.get("color", self.color),
+                "id": self.id,  # 用形状自身 id
+                "w": w
             })
         return out

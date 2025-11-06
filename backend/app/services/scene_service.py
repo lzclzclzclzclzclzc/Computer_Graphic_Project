@@ -250,7 +250,8 @@ class SceneService:
                 "w": 1
             })
 
-        blob = FillBlob(pixels=pixels, color=hex_color, pen_width=1)
+        # blob = FillBlob(pixels=pixels, color=hex_color, pen_width=1)
+        blob = FillBlob(id=fill_id, pixels=pixels, color=hex_color, pen_width=1)
         self.scene.add(blob)
 
         return self.scene.flatten_points()

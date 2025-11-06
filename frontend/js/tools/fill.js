@@ -1,21 +1,23 @@
+// frontend/js/tools/fill.js
 import { postFill } from "../api.js";
 import { state } from "../state.js";
 
-function uniqSorted(arr){ return Array.from(new Set(arr)).sort((a,b)=>a-b); }
+function uniqSorted(arr) { return Array.from(new Set(arr)).sort((a, b) => a - b); }
 
 export async function handleClickBucket(canvas, x, y, refresh) {
   const res = await postFill({
     x, y,
-    color: state.fillColor || "#2ecc71",
+    color: state.currentColor,                 // ← 用线条颜色
     connectivity: state.fillConnectivity || 4,
     tol: state.fillTolerance || 0,
     w: canvas.width, h: canvas.height,
   });
 
-  // 兼容：如果后端还没更新，res 可能是数组；我们只处理新格式
+  // 兼容旧后端（返回 points 数组）
   if (Array.isArray(res)) {
-    console.warn("[FILL] 后端返回旧格式（points 数组），无法精准获取 fill_id。请按补丁更新后端。");
+    console.warn("[FILL] 后端返回旧格式（points 数组），无法精准获取 fill_id。建议更新后端到返回 {points, fill_id, pixels}。");
     state.set({ cachedPts: res });
+    await refresh();
     return;
   }
 
@@ -24,18 +26,19 @@ export async function handleClickBucket(canvas, x, y, refresh) {
 
   if (!fill_id || !pixels || pixels.length === 0) {
     console.warn("[FILL] 本次没有产生新的填充（可能颜色相同或点在边界外）");
+    await refresh();
     return;
   }
 
   console.log(`[FILL] 新建 ${fill_id}，像素数=${pixels.length}`);
   console.table(pixels.slice(0, 50).map(p => ({ x: p.x|0, y: p.y|0, color: p.color })));
 
-  // 行区间摘要
+  // 行区间摘要（便于排查）
   const rows = new Map();
   for (const p of pixels) {
-    const y0 = p.y|0;
+    const y0 = p.y | 0;
     if (!rows.has(y0)) rows.set(y0, []);
-    rows.get(y0).push(p.x|0);
+    rows.get(y0).push(p.x | 0);
   }
   const spans = [];
   rows.forEach((xs, y0) => {
@@ -53,5 +56,5 @@ export async function handleClickBucket(canvas, x, y, refresh) {
   console.log("[FILL] 行区间摘要（前50段）:");
   console.table(spans.slice(0, 50));
 
-  await refresh(); // 若你 refresh 会再次 getPoints，这里也行；也可以不调
+  await refresh();
 }
