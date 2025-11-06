@@ -19,6 +19,8 @@ canvas {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   cursor: crosshair;
   transition: transform 0.2s ease;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .controls {

@@ -169,3 +169,12 @@ export async function postTransformEnd() {
     headers: { "Content-Type": "application/json" },
   });
 }
+export async function postFill(body) {
+  const r = await fetch(`/api/v1/flood`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`POST /flood ${r.status}`);
+  return r.json(); // 现在返回 { points, fill_id, pixels }
+}

@@ -1,3 +1,4 @@
+//main.js
 import { getPoints, postUndo, clearCanvas, postTranslate } from "./api.js";
 import { state, onChange } from "./state.js";
 import { initRender, paintAll } from "./render.js";
@@ -10,6 +11,8 @@ import { handleClickPolygon } from "./tools/polygon.js";
 import { handleClickBSpline } from "./tools/BSpline.js";
 import { handleClickClip } from "./tools/clip.js";
 import { rebuildIndex, pickShapeByPoint } from "./picker.js";
+import { handleClickBucket } from "./tools/fill.js"; // + 新增
+
 const canvas = document.getElementById("canvas");
 initRender(canvas);
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -34,6 +37,7 @@ function updateToolbarActive() {
     polygon: document.getElementById("polygonBtn"),
     bspline: document.getElementById("bsplineBtn"),
     clean: document.getElementById("clearBtn"),
+    bucket: document.getElementById("bucketBtn"),
   };
   document.querySelectorAll(".controls button").forEach(btn => btn.classList.remove("active"));
   const el = map[state.mode];
@@ -88,10 +92,13 @@ document.getElementById("bsplineBtn").onclick = () =>
 document.getElementById("polygonBtn").onclick = () =>
   state.set({ mode: "polygon", selectedId: null, moveStart: null, points: [] });
 
+document.getElementById("bucketBtn").onclick = () =>
+  state.set({ mode: "bucket", selectedId: null, moveStart: null, points: [] });
+
 const colorEl = document.getElementById("colorPicker");
 if (colorEl) {
   colorEl.addEventListener("input", (e) => {
-    state.set({ currentColor: e.target.value });
+    state.set({ currentColor: e.target.value, fillColor: e.target.value });
   });
 }
 
@@ -116,6 +123,12 @@ canvas.addEventListener("click", async (e) => {
   if (state.mode === "line")   return handleClickLine(x, y, refresh);
   if (state.mode === "rect")   return handleClickRect(x, y, refresh);
   if (state.mode === "circle") return handleClickCircle(x, y, refresh);
+
+  // +++ 新增：填充
+  if (state.mode === "bucket") {
+    return handleClickBucket(canvas, x, y, refresh);
+  }
+
 
   // 2. 只有在“操作类模式”下才去选中
   if (state.mode === "move" || state.mode === "clip") {

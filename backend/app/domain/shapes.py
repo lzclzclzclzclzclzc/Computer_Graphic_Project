@@ -390,3 +390,25 @@ class BSpline(Shape):
                 })
 
         return uniq
+
+@dataclass
+class FillBlob(Shape):
+    """
+    承载一批已计算好的像素点；rasterize 直接返回这些点。
+    pixels: List[{"x","y","color","id","w"}]；color 可以是 '#rrggbb' 或 (r,g,b,a)
+    """
+    pixels: List[Dict] = field(default_factory=list)
+
+    def rasterize(self) -> List[Dict]:
+        # 将像素规范化为你的统一结构；维持原色，不做变换
+        out = []
+        w = max(1, int(self.pen_width))
+        for p in self.pixels:
+            out.append({
+                "x": int(p["x"]),
+                "y": int(p["y"]),
+                "color": p.get("color", self.color),  # 已有颜色优先
+                "id": self.id,
+                "w": p.get("w", w),
+            })
+        return out

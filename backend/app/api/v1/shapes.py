@@ -222,3 +222,23 @@ def clip_rect():
     )
     return jsonify(pts)
 
+# -----------------------------
+# 连通填充（油漆桶）
+# -----------------------------
+@bp.post("/flood")
+def flood_fill():
+    data = request.get_json(force=True)
+    x = int(data["x"]); y = int(data["y"])
+    color = data.get("color", "#2ecc71")
+    connectivity = int(data.get("connectivity", 4))
+    tol = int(data.get("tol", 0))
+    width = int(data.get("w")); height = int(data.get("h"))
+
+    try:
+        meta = svc.bucket_fill_meta(
+            x=x, y=y, new_color=color, width=width, height=height,
+            connectivity=connectivity, tol=tol, bg_color="#ffffff"
+        )
+        return jsonify(meta), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400

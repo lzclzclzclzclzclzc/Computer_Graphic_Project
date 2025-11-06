@@ -9,6 +9,10 @@ export const state = {
   cachedPts: [],                // 后端返回的点
   shapesById: new Map(),        // id -> 点集合
   selectedId: null,
+  tool: 'select',   // 新增：'bucket' 时为填充
+  fillColor: '#2ecc71',
+  fillConnectivity: 4,
+  fillTolerance: 0,
   moveStart: null,
   baseScale: 1,      // 本次拖拽开始时的缩放
   baseAngle: 0,      // 本次拖拽开始时的角度
