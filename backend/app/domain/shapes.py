@@ -185,6 +185,8 @@ class Circle(Shape):
                     "w": w
                 })
         return uniq
+    
+
 # ---- n阶 Bézier 曲线 ----
 @dataclass
 class Bezier(Shape):
@@ -389,4 +391,179 @@ class BSpline(Shape):
                     "w": w
                 })
 
+        return uniq
+    
+@dataclass
+class Arc(Shape):
+    # 三个点：起点(x1, y1), 经过点(x2, y2), 终点(x3, y3) (局部坐标系里)
+    x1: float = 0; y1: float = 0
+    x2: float = 0; y2: float = 0
+    x3: float = 0; y3: float = 0
+
+    def _circumcenter_and_radius_local(self) -> Optional[Tuple[float, float, float]]:
+        """
+        在局部坐标里，算经过 (x1,y1),(x2,y2),(x3,y3) 的外接圆心 (cx,cy) 和半径 r
+        这个方法和 Circle 中的实现是相同的。
+        若三点几乎共线，返回 None
+        """
+        x1, y1 = float(self.x1), float(self.y1)
+        x2, y2 = float(self.x2), float(self.y2)
+        x3, y3 = float(self.x3), float(self.y3)
+
+        # 检查是否共线：计算三角形面积的两倍 d
+        d = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+        if abs(d) < 1e-8:
+            return None
+
+        # 计算外接圆心 (ux, uy)
+        ux = ((x1**2 + y1**2) * (y2 - y3) +
+              (x2**2 + y2**2) * (y3 - y1) +
+              (x3**2 + y3**2) * (y1 - y2)) / d
+        uy = ((x1**2 + y1**2) * (x3 - x2) +
+              (x2**2 + y2**2) * (x1 - x3) +
+              (x3**2 + y3**2) * (x2 - x1)) / d
+
+        cx, cy = ux, uy
+        # 计算半径 r
+        r = math.sqrt((cx - x1)**2 + (cy - y1)**2)
+        return cx, cy, r
+
+    def rasterize(self) -> List[Point]:
+        """
+        思路：
+        1. 在局部空间下找到外接圆心和半径。
+        2. 计算起点、经过点、终点在圆上的角度。
+        3. 根据三个点的顺序确定圆弧的方向（顺时针或逆时针）。
+        4. 在起点和终点的角度之间均匀采样。
+        5. 用 self.transform.apply() 把采样点丢到世界坐标
+        6. 去重，返回像素点。
+        如果三点共线，fallback 成两条线段 (P1->P2, P2->P3)。
+        """
+        circ = self._circumcenter_and_radius_local()
+        x1, y1 = float(self.x1), float(self.y1)
+        x2, y2 = float(self.x2), float(self.y2)
+        x3, y3 = float(self.x3), float(self.y3)
+
+        if circ is None:
+            # 共线或退化，按两条线段处理：P1->P2 和 P2->P3
+            from .shapes import bresenham  # 如果 bresenham 跟这个类同文件，去掉这行 import
+            
+            # P1 到 P2
+            X1, Y1 = self.transform.apply(x1, y1)
+            X2, Y2 = self.transform.apply(x2, y2)
+            pts1 = bresenham(int(round(X1)), int(round(Y1)),
+                             int(round(X2)), int(round(Y2)))
+            
+            # P2 到 P3
+            X3, Y3 = self.transform.apply(x3, y3)
+            # 注意：P2 点会被重复计算，后面去重会解决
+            pts2 = bresenham(int(round(X2)), int(round(Y2)),
+                             int(round(X3)), int(round(Y3)))
+            
+            all_pts = pts1 + pts2 # 合并所有点
+            w = max(1, int(self.pen_width))
+            
+            # 去重和加属性（与下面的逻辑类似）
+            seen = set()
+            uniq = []
+            for p in all_pts:
+                 key = (p["x"], p["y"])
+                 if key not in seen:
+                     seen.add(key)
+                     uniq.append({"x": p["x"], "y": p["y"],
+                                  "color": self.color, "id": self.id, "w": w})
+            return uniq
+
+        cx_local, cy_local, r_local = circ
+
+        # 1. 计算三个点在局部圆上的角度
+        # atan2 返回的角度范围是 (-pi, pi]
+        theta1 = math.atan2(y1 - cy_local, x1 - cx_local)
+        theta2 = math.atan2(y2 - cy_local, x2 - cx_local)
+        theta3 = math.atan2(y3 - cy_local, x3 - cx_local)
+        
+        # 2. 调整角度到 [0, 2*pi)
+        theta1 = theta1 if theta1 >= 0 else theta1 + 2 * math.pi
+        theta2 = theta2 if theta2 >= 0 else theta2 + 2 * math.pi
+        theta3 = theta3 if theta3 >= 0 else theta3 + 2 * math.pi
+        
+        # 3. 确定圆弧的角度范围 (start_angle, end_angle) 和 sweep_angle
+        # 目的是从 theta1 沿着包含 theta2 的方向转到 theta3。
+
+        # 将 theta1 到 theta3 的角度差规范到 (-2*pi, 2*pi) 范围内
+        angle_diff = theta3 - theta1
+        
+        # 规范化到 (-2*pi, 2*pi)
+        while angle_diff <= -2 * math.pi: angle_diff += 2 * math.pi
+        while angle_diff >= 2 * math.pi: angle_diff -= 2 * math.pi
+        
+        # 检查 theta2 是否落在 theta1 到 theta3 的短弧上
+        # (即从 theta1 逆时针到 theta3 的角度是否小于 pi)
+        # 短弧/长弧判断通常是通过 angle_diff 的符号来确定方向，然后检查 theta2 是否在范围内
+        
+        # 定义一个函数，计算从 a 到 b 的逆时针角度 (范围 [0, 2*pi))
+        def get_ccw_diff(a, b):
+            diff = b - a
+            return diff if diff >= 0 else diff + 2 * math.pi
+
+        ccw_diff_1_to_3 = get_ccw_diff(theta1, theta3)
+        ccw_diff_1_to_2 = get_ccw_diff(theta1, theta2)
+        ccw_diff_2_to_3 = get_ccw_diff(theta2, theta3)
+        
+        # 如果 ccw_diff_1_to_2 + ccw_diff_2_to_3 约等于 ccw_diff_1_to_3，
+        # 那么圆弧是逆时针方向，从 theta1 到 theta3
+        # 考虑到浮点数误差，使用小范围判断
+        epsilon = 1e-6
+        if abs(ccw_diff_1_to_2 + ccw_diff_2_to_3 - ccw_diff_1_to_3) < epsilon:
+            # 逆时针圆弧：起点 theta1, 终点 theta3, 角度跨度 ccw_diff_1_to_3
+            start_angle = theta1
+            sweep_angle = ccw_diff_1_to_3
+        else:
+            # 顺时针圆弧（即沿着长弧，跨度 > pi）。
+            # 相当于逆时针从 theta3 到 theta1 的长弧。
+            # 从 theta1 到 theta3 的顺时针角度是 -(2*pi - ccw_diff_1_to_3)
+            start_angle = theta1
+            sweep_angle = -(2 * math.pi - ccw_diff_1_to_3)
+
+
+        # 4. 计算采样点数量
+        # 采样密度：尽量让相邻采样点接近1px（在局部半径上估），考虑最大角度跨度
+        arc_length_local = abs(sweep_angle) * r_local
+        # 确保至少有 16 个点，或足以覆盖弧长
+        n = max(16, min(2000, int(max(1.0, arc_length_local))))
+        
+        if n == 0:
+            return [] # 半径太小，返回空列表
+
+        raw_pts_world = []
+        for i in range(n + 1): # n+1 次采样，包括起点和终点
+            # 插值角度
+            frac = i / n
+            theta = start_angle + sweep_angle * frac
+            
+            px_local = cx_local + r_local * math.cos(theta)
+            py_local = cy_local + r_local * math.sin(theta)
+
+            # 转换到世界坐标并四舍五入到最近的像素点
+            Xw, Yw = self.transform.apply(px_local, py_local)
+            raw_pts_world.append({
+                "x": int(round(Xw)),
+                "y": int(round(Yw)),
+            })
+
+        # 5. 去重并加绘制属性
+        seen = set()
+        uniq = []
+        w = max(1, int(self.pen_width))
+        for p in raw_pts_world:
+            key = (p["x"], p["y"])
+            if key not in seen:
+                seen.add(key)
+                uniq.append({
+                    "x": p["x"],
+                    "y": p["y"],
+                    "color": self.color,
+                    "id": self.id,
+                    "w": w
+                })
         return uniq

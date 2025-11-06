@@ -3,7 +3,7 @@
 import re
 from typing import Dict, List, Optional
 from ..domain.scene import Scene
-from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon, BSpline
+from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon, BSpline, Arc
 
 HEX = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
 
@@ -136,6 +136,20 @@ class SceneService:
 
         return self.scene.flatten_points()
 
+
+    def add_arc(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+        c = _pick_color(color)
+        w = _pick_width(width if width is not None else d.get("width"), 1)
+
+        arc = Arc(
+            x1=int(d["x1"]), y1=int(d["y1"]),
+            x2=int(d["x2"]), y2=int(d["y2"]),
+            x3=int(d["x3"]), y3=int(d["y3"]),
+            color=c,
+            pen_width=w,
+        )
+        self.scene.add(arc)
+        return self.scene.flatten_points()
     
     # -------------------------
     # 状态 / 绘制
