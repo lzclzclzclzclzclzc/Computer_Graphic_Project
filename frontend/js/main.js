@@ -5,7 +5,7 @@ import { handleClickLine } from "./tools/line.js";
 import { handleClickRect } from "./tools/rect.js";
 import {  beginMoveDrag } from "./tools/move.js";
 import { handleClickCircle } from "./tools/circle.js";
-import { handleClickBezier } from "./tools/bezier.js";
+import { initBezierHandler } from "./tools/bezier.js";
 import { handleClickPolygon } from "./tools/polygon.js";
 import { handleClickBSpline } from "./tools/BSpline.js";
 import { handleClickArc } from "./tools/arc.js";
@@ -103,9 +103,10 @@ document.getElementById("clipBtn").onclick = () =>
   state.set({ mode: "clip",  moveStart: null, points: [] });
 
 
-
-document.getElementById("bezierBtn").onclick = () =>
+document.getElementById("bezierBtn").onclick = () => {
   state.set({ mode: "bezier", selectedId: null, moveStart: null, points: [] });
+  initBezierHandler(canvas, refresh); // 启动 Bézier 拖拽绘制模式
+};
 
 document.getElementById("bsplineBtn").onclick = () =>
   state.set({ mode: "bspline", selectedId: null, moveStart: null, points: [] });

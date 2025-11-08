@@ -26,6 +26,7 @@ export function paintAll() {
     drawPreviewDot(state.rotateCenter.x, state.rotateCenter.y, "#00ff00");
   }
 }
+
 export function highlightShape(id) {
   const pts = state.shapesById.get(id);
   if (!pts || !pts.length) return;
