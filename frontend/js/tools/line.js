@@ -1,7 +1,6 @@
 import { state } from "../state.js";
 import { drawPreviewDot } from "../render.js";
-import { postLine } from "../api.js";
-
+import { postLine, attachStyleFields } from "../api.js";
 export async function handleClickLine(x, y, refresh) {
   if (state.points.length === 0) {
     drawPreviewDot(x, y, state.currentColor);
@@ -14,6 +13,9 @@ export async function handleClickLine(x, y, refresh) {
     x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
     color: state.currentColor,
     width: state.currentWidth,
+    style: state.lineStyle,          // 新增
+    dash_on: state.dashOn,           // 新增
+    dash_off: state.dashOff,         // 新增
   });
   state.set({ points: [] });
   await refresh();

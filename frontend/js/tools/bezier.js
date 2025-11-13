@@ -2,7 +2,7 @@
 import { state } from "../state.js";
 import { paintAll, drawPreviewDot } from "../render.js";
 import { postBezier } from "../api.js";
-
+import { postLine, attachStyleFields } from "../api.js";
 let draggingIndex = -1;
 let canvasElement = null;
 
@@ -45,6 +45,9 @@ async function handleMouseDown(e, refresh) {
         points: state.points,
         color: state.currentColor,
         width: state.currentWidth,
+        style: state.lineStyle,          // 新增
+    dash_on: state.dashOn,           // 新增
+    dash_off: state.dashOff,         // 新增
       });
     }
     state.set({ points: [] });

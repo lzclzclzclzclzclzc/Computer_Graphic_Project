@@ -182,3 +182,11 @@ export async function postTransformEnd() {
     headers: { "Content-Type": "application/json" },
   });
 }
+export function attachStyleFields(base) {
+  return {
+    ...base,
+    style: state.lineStyle,     // "solid" / "dash-6-4" ...
+    dash_on: state.dashOn,      // 整数像素
+    dash_off: state.dashOff,    // 整数像素
+  };
+}

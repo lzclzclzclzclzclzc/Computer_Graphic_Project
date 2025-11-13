@@ -14,6 +14,8 @@ def bresenham(x1, y1, x2, y2) -> List[Point]:
     sx, sy = (1 if x < x2 else -1), (1 if y < y2 else -1)
     err = dx - dy
     pts: List[Point] = []
+
+
     while True:
         pts.append({"x": x, "y": y})
         if x == x2 and y == y2:
@@ -27,6 +29,31 @@ def bresenham(x1, y1, x2, y2) -> List[Point]:
             y += sy
     return pts
 
+def dash_filter(points: List[Point], on: int, off: int) -> List[Point]:
+    """
+    把一串像素点按 on/off 规则变成虚线：
+    - on: 连续绘制的像素数
+    - off: 连续跳过的像素数
+    on<=0 或 off<=0 时，表示实线，不做任何处理
+    """
+    if on <= 0 or off <= 0:
+        return points
+
+    out: List[Point] = []
+    draw = True
+    run = 0
+    for p in points:
+        if draw:
+            out.append(p)
+        run += 1
+        if draw and run >= on:
+            draw = False
+            run = 0
+        elif (not draw) and run >= off:
+            draw = True
+            run = 0
+    return out
+
 
 @dataclass
 class Shape:
@@ -34,6 +61,10 @@ class Shape:
     pen_width: int = 1
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     transform: Mat2x3 = field(default_factory=Mat2x3.identity)
+    # 新增：线型
+    style: str = "solid"  # "solid" | "dash"
+    dash_on: int = 0  # 开段像素数，虚线时>0
+    dash_off: int = 0  # 断段像素数，虚线时>0
 
     # ---- 通用变换 ----
     def translate(self, dx: float, dy: float):
@@ -57,6 +88,8 @@ class Shape:
     def rasterize(self) -> List[Point]:
         raise NotImplementedError
 
+
+
 # ---- 直线 ----
 @dataclass
 class Line(Shape):
@@ -68,8 +101,12 @@ class Line(Shape):
         X2, Y2 = self.transform.apply(self.x2, self.y2)
         pts = bresenham(int(round(X1)), int(round(Y1)),
                         int(round(X2)), int(round(Y2)))
+        # 应用虚线 on/off 规则
+        pts = dash_filter(pts, self.dash_on, self.dash_off)
+
         w = max(1, int(self.pen_width))
-        return [{"x": p["x"], "y": p["y"], "color": self.color, "id": self.id, "w": w} for p in pts]
+        return [{"x": p["x"], "y": p["y"], "color": self.color, "id": self.id, "w": w}
+                for p in pts]
 
 # ---- 矩形（描边）----
 @dataclass
@@ -90,6 +127,7 @@ class Rectangle(Shape):
             X2, Y2 = self.transform.apply(x2, y2)
             edges += bresenham(int(round(X1)), int(round(Y1)), int(round(X2)), int(round(Y2)))
 
+        edges = dash_filter(edges, self.dash_on, self.dash_off)
         seen = set()
         w = max(1, int(self.pen_width))
         uniq = []
@@ -143,11 +181,11 @@ class Circle(Shape):
         circ = self._circumcenter_and_radius_local()
         if circ is None:
             # 共线或退化，按一条直线处理
-            from .shapes import bresenham  # 如果 bresenham 跟这个类同文件，去掉这行 import
             X1, Y1 = self.transform.apply(self.x1, self.y1)
             X2, Y2 = self.transform.apply(self.x2, self.y2)
             pts = bresenham(int(round(X1)), int(round(Y1)),
                             int(round(X2)), int(round(Y2)))
+            pts = dash_filter(pts, self.dash_on, self.dash_off)
             w = max(1, int(self.pen_width))
             return [{"x": p["x"], "y": p["y"],
                      "color": self.color, "id": self.id, "w": w} for p in pts]
@@ -168,7 +206,7 @@ class Circle(Shape):
                 "x": int(round(Xw)),
                 "y": int(round(Yw)),
             })
-
+        raw_pts_world = dash_filter(raw_pts_world, self.dash_on, self.dash_off)
         # 去重并加绘制属性
         seen = set()
         uniq = []
@@ -233,7 +271,7 @@ class Bezier(Shape):
             t = i / n_samples
             pt = self._de_casteljau_world(t, world_ctrl_pts)
             raw_pts.append(pt)
-
+        raw_pts = dash_filter(raw_pts, self.dash_on, self.dash_off)
         # 3. 去重 + 上色
         seen = set()
         uniq: List[Point] = []
@@ -284,6 +322,7 @@ class Polygon(Shape):
                 edges += bresenham(int(round(p1["x"])), int(round(p1["y"])),
                                    int(round(p2["x"])), int(round(p2["y"])))
 
+        edges = dash_filter(edges, self.dash_on, self.dash_off)
         seen = set()
         uniq = []
         w = max(1, int(self.pen_width))
@@ -374,7 +413,7 @@ class BSpline(Shape):
             t = i / n_samples
             pt = self._spline_point_world(t, world_ctrl_pts)
             raw_pts.append(pt)
-
+        raw_pts = dash_filter(raw_pts, self.dash_on, self.dash_off)
         # 3. 去重 + 上色
         seen = set()
         uniq: List[Dict[str, int]] = []
@@ -461,6 +500,7 @@ class Arc(Shape):
                              int(round(X3)), int(round(Y3)))
             
             all_pts = pts1 + pts2 # 合并所有点
+            all_pts = dash_filter(all_pts, self.dash_on, self.dash_off)
             w = max(1, int(self.pen_width))
             
             # 去重和加属性（与下面的逻辑类似）
@@ -550,7 +590,7 @@ class Arc(Shape):
                 "x": int(round(Xw)),
                 "y": int(round(Yw)),
             })
-
+        raw_pts_world = dash_filter(raw_pts_world, self.dash_on, self.dash_off)
         # 5. 去重并加绘制属性
         seen = set()
         uniq = []

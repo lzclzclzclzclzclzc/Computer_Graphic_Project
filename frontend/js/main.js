@@ -1,3 +1,4 @@
+import {  setLineStyleFromValue } from "./state.js";
 import { getPoints, postUndo, clearCanvas, postTranslate } from "./api.js";
 import { state, onChange } from "./state.js";
 import { initRender, paintAll } from "./render.js";
@@ -130,7 +131,13 @@ if (widthEl) {
     if (widthLabel) widthLabel.textContent = String(v);
   });
 }
+document.getElementById("lineStyle").addEventListener("change", (e) => {
+  setLineStyleFromValue(e.target.value);
+});
 
+// 页面刚加载时同步一次（保持 UI 与 state 一致）
+const sel = document.getElementById("lineStyle");
+if (sel) setLineStyleFromValue(sel.value || "solid");
 // ------- click --------
 // 单击：画线/矩形/圆；如果是 move / clip，就当成“点选”
 canvas.addEventListener("click", async (e) => {
