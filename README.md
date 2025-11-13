@@ -12,3 +12,7 @@ python backend/wsgi.py
 访问：http://127.0.0.1:5050/
 
 ## 待实现功能
+- websocket 改写前端，实现动画函数
+    - 生成圆形，运动轨迹为圆形
+    - 生成直线，绕端点旋转
+- mcp server 增加填充功能
