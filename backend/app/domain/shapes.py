@@ -607,3 +607,22 @@ class Arc(Shape):
                     "w": w
                 })
         return uniq
+
+@dataclass
+class FillBlob(Shape):
+    # 存“基准像素”（创建时的绝对坐标），移动/旋转/缩放靠 transform
+    pixels: List[Dict] = field(default_factory=list)
+
+    def rasterize(self) -> List[Dict]:
+        out = []
+        w = max(1, int(self.pen_width or 1))
+        for p in self.pixels:
+            x, y = self.transform.apply(p["x"], p["y"])  # 应用变换
+            out.append({
+                "x": int(round(x)),
+                "y": int(round(y)),
+                "color": p.get("color", self.color),
+                "id": self.id,  # 用形状自身 id
+                "w": w
+            })
+        return out
