@@ -1,16 +1,19 @@
-import { getPoints, postUndo, clearCanvas, postTranslate } from "./api.js";
+// frontend/js/main.js
+import { getPoints, postUndo, clearCanvas } from "./api.js";
 import { state, onChange } from "./state.js";
 import { initRender, paintAll } from "./render.js";
 import { handleClickLine } from "./tools/line.js";
 import { handleClickRect } from "./tools/rect.js";
-import {  beginMoveDrag } from "./tools/move.js";
+import { beginMoveDrag } from "./tools/move.js";
 import { handleClickCircle } from "./tools/circle.js";
 import { initBezierHandler } from "./tools/bezier.js";
 import { handleClickPolygon } from "./tools/polygon.js";
 import { handleClickBSpline } from "./tools/BSpline.js";
 import { handleClickArc } from "./tools/arc.js";
 import { handleClickClip } from "./tools/clip.js";
+import { handleClickBucket } from "./tools/fill.js";
 import { rebuildIndex, pickShapeByPoint } from "./picker.js";
+
 const canvas = document.getElementById("canvas");
 initRender(canvas);
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -51,6 +54,8 @@ function updateToolbarActive() {
     polygon: document.getElementById("polygonBtn"),
     rotatePoint: document.getElementById("rotatePointBtn"),
     bspline: document.getElementById("bsplineBtn"),
+    clip: document.getElementById("clipBtn"),
+    bucket: document.getElementById("bucketBtn"), // ← 新增
     arc: document.getElementById("arcBtn"),
     clean: document.getElementById("clearBtn"),
   };
@@ -72,6 +77,21 @@ document.getElementById("moveBtn").onclick = () =>
 document.getElementById("circleBtn").onclick = () =>
   state.set({ mode: "circle", selectedId: null, moveStart: null, points: [] });
 
+document.getElementById("bezierBtn").onclick = () =>
+  state.set({ mode: "bezier", selectedId: null, moveStart: null, points: [] });
+
+document.getElementById("polygonBtn").onclick = () =>
+  state.set({ mode: "polygon", selectedId: null, moveStart: null, points: [] });
+
+document.getElementById("bsplineBtn").onclick = () =>
+  state.set({ mode: "bspline", selectedId: null, moveStart: null, points: [] });
+
+document.getElementById("clipBtn").onclick = () =>
+  state.set({ mode: "clip", selectedId: null, moveStart: null, points: [] });
+
+document.getElementById("bucketBtn").onclick = () =>
+  state.set({ mode: "bucket", selectedId: null, moveStart: null, points: [] });
+
 document.getElementById("rotatePointBtn").onclick = () =>
   state.set({ mode: "rotatePoint", selectedId: null, moveStart: null, points: [], rotateCenter: null });
 
@@ -79,26 +99,23 @@ document.getElementById("arcBtn").onclick = () =>
   state.set({ mode: "arc", selectedId: null, moveStart: null, points: [] });
 
 document.getElementById("undoBtn").onclick = async () => {
-  try {
-    await postUndo();
-  } catch (e) {
-    console.error("撤销失败：", e);
-  } finally {
+  try { await postUndo(); }
+  catch (e) { console.error("撤销失败：", e); }
+  finally {
     state.set({ points: [], selectedId: null, moveStart: null });
     await refresh();
   }
 };
 
 document.getElementById("clearBtn").onclick = async () => {
-  try {
-    await clearCanvas();
-  } catch (e) {
-    console.error("清空画布失败：", e);
-  } finally {
+  try { await clearCanvas(); }
+  catch (e) { console.error("清空画布失败：", e); }
+  finally {
     state.set({ points: [], selectedId: null, moveStart: null });
     await refresh();
   }
 };
+
 document.getElementById("clipBtn").onclick = () =>
   state.set({ mode: "clip",  moveStart: null, points: [] });
 
@@ -114,13 +131,16 @@ document.getElementById("bsplineBtn").onclick = () =>
 document.getElementById("polygonBtn").onclick = () =>
   state.set({ mode: "polygon", selectedId: null, moveStart: null, points: [] });
 
+// 颜色选择器：线条 & 填充颜色同步
 const colorEl = document.getElementById("colorPicker");
 if (colorEl) {
   colorEl.addEventListener("input", (e) => {
-    state.set({ currentColor: e.target.value });
+    const c = e.target.value;
+    state.set({ currentColor: c, fillColor: c });
   });
 }
 
+// 线宽滑块
 const widthEl = document.getElementById("widthPicker");
 const widthLabel = document.getElementById("widthLabel");
 if (widthEl) {
@@ -132,21 +152,25 @@ if (widthEl) {
 }
 
 // ------- click --------
-// 单击：画线/矩形/圆；如果是 move / clip，就当成“点选”
 canvas.addEventListener("click", async (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = Math.round(e.clientX - rect.left);
   const y = Math.round(e.clientY - rect.top);
 
-  // 1. 画图形的几种模式，保持原样
+  // 先处理“填充”
+  if (state.mode === "bucket") {
+    return handleClickBucket(canvas, x, y, refresh);
+  }
+
+  // 画图形的几种模式
   if (state.mode === "line")   return handleClickLine(x, y, refresh);
   if (state.mode === "rect")   return handleClickRect(x, y, refresh);
   if (state.mode === "circle") return handleClickCircle(x, y, refresh);
   if (state.mode === "arc")    return handleClickArc(x, y, refresh);
 
-  // 2. 只有在“操作类模式”下才去选中
+  // 操作类模式：点选
   if (state.mode === "move" || state.mode === "clip") {
-    const hit = pickShapeByPoint(x, y, 12); // 12 是选中的容差，可调
+    const hit = pickShapeByPoint(x, y, 12);
     state.set({ selectedId: hit ? hit.id : null });
   }
 
@@ -174,33 +198,16 @@ window.addEventListener("keydown", e => {
 });
 
 // ------- mousedown --------
-// 按下：进入多段绘制 (bezier/polygon) 或进入拖拽 (move)
 canvas.addEventListener("mousedown", async (e) => {
   const rect = canvas.getBoundingClientRect();
   const x0 = Math.round(e.clientX - rect.left);
   const y0 = Math.round(e.clientY - rect.top);
 
-  if (state.mode === "move") {
-    beginMoveDrag(canvas, x0, y0);
-    return;
-  }
-
-  if (state.mode === "bezier") {
-    return handleClickBezier(x0, y0, e.button, refresh);
-  }
-
-  if (state.mode === "polygon") {
-    return handleClickPolygon(x0, y0, e.button, refresh);
-  }
-
-  if (state.mode === "clip") {
-  return handleClickClip(x0, y0, e.button, refresh);
-  }
-
-  if (state.mode === "bspline") {
-    return handleClickBSpline(x0, y0, e.button, refresh);
-  }
-
+  if (state.mode === "move")   return beginMoveDrag(canvas, x0, y0);
+  if (state.mode === "bezier") return handleClickBezier(x0, y0, e.button, refresh);
+  if (state.mode === "polygon") return handleClickPolygon(x0, y0, e.button, refresh);
+  if (state.mode === "clip")   return handleClickClip(x0, y0, e.button, refresh);
+  if (state.mode === "bspline") return handleClickBSpline(x0, y0, e.button, refresh);
 });
 
 // 状态变化 -> 视觉更新（高亮/线宽/颜色等）
