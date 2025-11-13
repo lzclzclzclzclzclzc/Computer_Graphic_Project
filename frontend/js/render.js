@@ -67,6 +67,9 @@ export function paintAll() {
   });
 
   if (state.selectedId) highlightShape(state.selectedId);
+  if (state.rotateCenter) {
+    drawPreviewDot(state.rotateCenter.x, state.rotateCenter.y, "#00ff00");
+  }
 }
 
 export function highlightShape(id) {

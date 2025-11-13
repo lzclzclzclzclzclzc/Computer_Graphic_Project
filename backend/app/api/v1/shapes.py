@@ -30,9 +30,13 @@ def create_line():
     data = request.get_json(force=True)
     color = data.get("color", "#ff0000")
     width = max(1, _int(data.get("width", 1), 1))
+    style = data.get("style", "solid")  # 新增
+    dash_on = int(data.get("dash_on", 0))  # 新增
+    dash_off = int(data.get("dash_off", 0))  # 新增
 
     try:
-        result = svc.add_line(data, color=color, width=width)
+        result = svc.add_line(data, color=color, width=width,
+                              style=style, dash_on=dash_on, dash_off=dash_off)
         return jsonify(result), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -43,9 +47,13 @@ def create_rectangle():
     data = request.get_json(force=True)
     color = data.get("color", "#ff0000")
     width = max(1, _int(data.get("width", 1), 1))
+    style = data.get("style", "solid")  # 新增
+    dash_on = int(data.get("dash_on", 0))  # 新增
+    dash_off = int(data.get("dash_off", 0))  # 新增
 
     try:
-        result = svc.add_rect(data, color=color, width=width)
+        result = svc.add_rect(data, color=color, width=width,
+                              style=style, dash_on=dash_on, dash_off=dash_off)
         return jsonify(result), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -56,9 +64,13 @@ def create_circle():
     data = request.get_json(force=True)
     color = data.get("color", "#ff0000")
     width = max(1, _int(data.get("width", 1), 1))
+    style = data.get("style", "solid")  # 新增
+    dash_on = int(data.get("dash_on", 0))  # 新增
+    dash_off = int(data.get("dash_off", 0))  # 新增
 
     try:
-        result = svc.add_circle(data, color=color, width=width)
+        result = svc.add_circle(data, color=color, width=width,
+                              style=style, dash_on=dash_on, dash_off=dash_off)
         return jsonify(result), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -69,9 +81,13 @@ def create_bezier():
     data = request.get_json(force=True)
     color = data.get("color", "#ff0000")
     width = max(1, _int(data.get("width", 1), 1))
+    style = data.get("style", "solid")  # 新增
+    dash_on = int(data.get("dash_on", 0))  # 新增
+    dash_off = int(data.get("dash_off", 0))  # 新增
 
     try:
-        result = svc.add_bezier(data, color=color, width=width)
+        result = svc.add_bezier(data, color=color, width=width,
+                              style=style, dash_on=dash_on, dash_off=dash_off)
         return jsonify(result), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -82,9 +98,13 @@ def create_polygon():
     data = request.get_json(force=True)
     color = data.get("color", "#ff0000")
     width = max(1, _int(data.get("width", 1), 1))
+    style = data.get("style", "solid")  # 新增
+    dash_on = int(data.get("dash_on", 0))  # 新增
+    dash_off = int(data.get("dash_off", 0))  # 新增
 
     try:
-        result = svc.add_polygon(data, color=color, width=width)
+        result = svc.add_polygon(data, color=color, width=width,
+                              style=style, dash_on=dash_on, dash_off=dash_off)
         return jsonify(result), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400 
@@ -95,10 +115,30 @@ def create_bspline():
     data = request.get_json(force=True)
     color = data.get("color", "#ff0000")
     width = max(1, _int(data.get("width", 1), 1))
+    style = data.get("style", "solid")  # 新增
+    dash_on = int(data.get("dash_on", 0))  # 新增
+    dash_off = int(data.get("dash_off", 0))  # 新增
 
     try:
         degree = _int(data.get("degree", 3), 3)
-        result = svc.add_bspline(data, degree=degree, color=color, width=width)
+        result = svc.add_bspline(data, degree=degree, color=color, width=width,
+                              style=style, dash_on=dash_on, dash_off=dash_off)
+        return jsonify(result), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+@bp.post("/arc")
+def create_arc():
+    data = request.get_json(force=True)
+    color = data.get("color", "#ff0000")
+    width = max(1, _int(data.get("width", 1), 1))
+    style = data.get("style", "solid")  # 新增
+    dash_on = int(data.get("dash_on", 0))  # 新增
+    dash_off = int(data.get("dash_off", 0))  # 新增
+
+    try:
+        result = svc.add_arc(data, color=color, width=width,
+                              style=style, dash_on=dash_on, dash_off=dash_off)
         return jsonify(result), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400

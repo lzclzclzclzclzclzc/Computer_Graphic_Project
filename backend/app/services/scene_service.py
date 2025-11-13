@@ -3,7 +3,7 @@
 import re
 from typing import Dict, List, Optional
 from ..domain.scene import Scene
-from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon, BSpline,FillBlob
+from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon, BSpline,FillBlob, Arc
 from ..domain.fill import scanline_flood_fill
 from uuid import uuid4
 
@@ -56,57 +56,66 @@ class SceneService:
     # -------------------------
     # 创建各种图形
     # -------------------------
-    def add_line(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+    def add_line(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
         期望 d 里有: x1,y1,x2,y2
         """
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
-
+        s = style if style is not None else d.get("style", "solid")
+        on = int(dash_on if dash_on is not None else d.get("dash_on", 0) or 0)
+        off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
         line = Line(
             x1=int(d["x1"]), y1=int(d["y1"]),
             x2=int(d["x2"]), y2=int(d["y2"]),
             color=c,
             pen_width=w,
+            style=s,
+            dash_on=on,
+            dash_off=off,
         )
         self.scene.add(line)
         return self.scene.flatten_points()
 
-    def add_rect(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+    def add_rect(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
         期望 d 里有: x1,y1,x2,y2  视为对角点
         """
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
-
+        s = style if style is not None else d.get("style", "solid")
+        on = int(dash_on if dash_on is not None else d.get("dash_on", 0) or 0)
+        off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
         rect = Rectangle(
             x1=int(d["x1"]), y1=int(d["y1"]),
             x2=int(d["x2"]), y2=int(d["y2"]),
             color=c,
-            pen_width=w,
+            pen_width=w, style=s, dash_on=on, dash_off=off
         )
         self.scene.add(rect)
         return self.scene.flatten_points()
 
-    def add_circle(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+    def add_circle(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
         期望 d 里有: x1,y1,x2,y2,x3,y3
         （用三点拟合外接圆）
         """
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
-
+        s = style if style is not None else d.get("style", "solid")
+        on = int(dash_on if dash_on is not None else d.get("dash_on", 0) or 0)
+        off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
         circle = Circle(
             x1=int(d["x1"]), y1=int(d["y1"]),
             x2=int(d["x2"]), y2=int(d["y2"]),
             x3=int(d["x3"]), y3=int(d["y3"]),
             color=c,
-            pen_width=w,
+            pen_width=w, style=s, dash_on=on, dash_off=off
         )
         self.scene.add(circle)
         return self.scene.flatten_points()
 
-    def add_bezier(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+    def add_bezier(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
         期望 d["points"] 是 [{x:..., y:...}, ...]
         """
@@ -116,12 +125,14 @@ class SceneService:
 
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
-
-        bezier = Bezier(points=pts, color=c, pen_width=w)
+        s = style if style is not None else d.get("style", "solid")
+        on = int(dash_on if dash_on is not None else d.get("dash_on", 0) or 0)
+        off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
+        bezier = Bezier(points=pts, color=c, pen_width=w,style=s, dash_on=on, dash_off=off)
         self.scene.add(bezier)
         return self.scene.flatten_points()
 
-    def add_polygon(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None) -> List[Dict]:
+    def add_polygon(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
         期望 d["points"] 是 [{x:..., y:...}, ...] 且至少3点
         """
@@ -131,8 +142,10 @@ class SceneService:
 
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
-
-        polygon = Polygon(points=pts, color=c, pen_width=w)
+        s = style if style is not None else d.get("style", "solid")
+        on = int(dash_on if dash_on is not None else d.get("dash_on", 0) or 0)
+        off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
+        polygon = Polygon(points=pts, color=c, pen_width=w,style=s, dash_on=on, dash_off=off)
         self.scene.add(polygon)
         return self.scene.flatten_points()
     
@@ -141,7 +154,7 @@ class SceneService:
         d: Dict,
         degree: Optional[int] = None,
         color: Optional[str] = None,
-        width: Optional[int] = None
+        width: Optional[int] = None, style: Optional[str] = None, dash_on: Optional[int] = None, dash_off: Optional[int] = None,
     ) -> List[Dict]:
         """
         期望 d 包含:
@@ -156,12 +169,30 @@ class SceneService:
 
         c = _pick_color(color)
         w = _pick_width(width if width is not None else d.get("width"), 1)
-
-        bspline = BSpline(points=pts, order = degree + 1, color=c, pen_width=w)
+        s = style if style is not None else d.get("style", "solid")
+        on = int(dash_on if dash_on is not None else d.get("dash_on", 0) or 0)
+        off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
+        bspline = BSpline(points=pts, order = degree + 1, color=c, pen_width=w,style=s, dash_on=on, dash_off=off)
         self.scene.add(bspline)
 
         return self.scene.flatten_points()
 
+
+    def add_arc(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
+        c = _pick_color(color)
+        w = _pick_width(width if width is not None else d.get("width"), 1)
+        s = style if style is not None else d.get("style", "solid")
+        on = int(dash_on if dash_on is not None else d.get("dash_on", 0) or 0)
+        off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
+        arc = Arc(
+            x1=int(d["x1"]), y1=int(d["y1"]),
+            x2=int(d["x2"]), y2=int(d["y2"]),
+            x3=int(d["x3"]), y3=int(d["y3"]),
+            color=c,
+            pen_width=w,style=s, dash_on=on, dash_off=off
+        )
+        self.scene.add(arc)
+        return self.scene.flatten_points()
     
     # -------------------------
     # 状态 / 绘制

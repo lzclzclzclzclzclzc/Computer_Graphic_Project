@@ -2,7 +2,7 @@
 import { state } from "../state.js";
 import { initRender, paintAll, drawPreviewDot } from "../render.js";
 import { postBSpline } from "../api.js";
-
+import { postLine, attachStyleFields } from "../api.js";
 export async function handleClickBSpline(x, y, button, refresh) {
   if (button === 0) {
     // 左键：添加控制点
@@ -27,6 +27,9 @@ export async function handleClickBSpline(x, y, button, refresh) {
         degree: degree,
         color: state.currentColor,
         width: state.currentWidth,
+        style: state.lineStyle,          // 新增
+    dash_on: state.dashOn,           // 新增
+    dash_off: state.dashOff,         // 新增
       });
 
       state.set({ points: [] });

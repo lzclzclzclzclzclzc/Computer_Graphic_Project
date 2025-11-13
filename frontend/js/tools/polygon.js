@@ -2,7 +2,7 @@
 import { state } from "../state.js";
 import { drawPreviewDot } from "../render.js";
 import { postPolygon } from "../api.js";
-
+import { postLine, attachStyleFields } from "../api.js";
 export async function handleClickPolygon(x, y, button, refresh) {
   // 左键：添加参考点
   if (button === 0) {
@@ -22,6 +22,9 @@ export async function handleClickPolygon(x, y, button, refresh) {
       points: state.points,
       color: state.currentColor,
       width: state.currentWidth,
+      style: state.lineStyle,          // 新增
+    dash_on: state.dashOn,           // 新增
+    dash_off: state.dashOff,         // 新增
     };
 
     try {

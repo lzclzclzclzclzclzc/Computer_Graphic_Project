@@ -25,7 +25,24 @@ export const state = {
   cumulativeAngle: 0,
 
   set(patch) { Object.assign(this, patch); emit(); },
+  lineStyle: "solid",   // "solid" | "dash-6-4" 等
+  dashOn: 0,
+  dashOff: 0,
 };
 
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 function emit() { listeners.forEach(fn => fn(state)); }
+
+export function setLineStyleFromValue(v) {
+  // v 来自下拉框的 value，比如 "solid" / "dash-6-4" / "dash-10-6"
+  let on = 0, off = 0;
+  if (v.startsWith("dash-")) {
+    const parts = v.split("-");
+    on = parseInt(parts[1] || "6", 10);
+    off = parseInt(parts[2] || "4", 10);
+    if (!Number.isFinite(on) || !Number.isFinite(off) || on <= 0 || off <= 0) {
+      on = 6; off = 4; // 兜底
+    }
+  }
+  state.set({ lineStyle: v, dashOn: on, dashOff: off });
+}

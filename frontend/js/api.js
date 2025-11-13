@@ -91,6 +91,19 @@ export async function postPolygon(payload) {
   return r.json();
 }
 
+export async function postArc(payload) {
+  const r = await fetch(`${API}/arc`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: "请求失败" }));
+    throw new Error(err.error || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
 // --- scene mutate (transform etc.) ---
 
 // 1) 平移
@@ -169,6 +182,13 @@ export async function postTransformEnd() {
     headers: { "Content-Type": "application/json" },
   });
 }
+export function attachStyleFields(base) {
+  return {
+    ...base,
+    style: state.lineStyle,     // "solid" / "dash-6-4" ...
+    dash_on: state.dashOn,      // 整数像素
+    dash_off: state.dashOff,    // 整数像素
+  };
 export async function postFill(body) {
   const r = await fetch(`/api/v1/flood`, {
     method: "POST",
