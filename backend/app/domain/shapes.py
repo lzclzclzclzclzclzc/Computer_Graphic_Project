@@ -185,6 +185,8 @@ class Circle(Shape):
                     "w": w
                 })
         return uniq
+    
+
 # ---- n阶 Bézier 曲线 ----
 @dataclass
 class Bezier(Shape):

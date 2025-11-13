@@ -91,6 +91,19 @@ export async function postPolygon(payload) {
   return r.json();
 }
 
+export async function postArc(payload) {
+  const r = await fetch(`${API}/arc`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: "请求失败" }));
+    throw new Error(err.error || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
 // --- scene mutate (transform etc.) ---
 
 // 1) 平移

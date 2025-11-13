@@ -52,8 +52,14 @@ export function beginMoveDrag(canvas, x0, y0) {
     if (!state.selectedId) return; // 没选中不管
     ev.preventDefault(); // 真正要变换才阻止默认滚动
 
-    const cx = state.moveStart.x;
-    const cy = state.moveStart.y;
+    let cx, cy;
+    if (state.mode === "rotatePoint") {
+      cx = state.rotateCenter.x;
+      cy = state.rotateCenter.y;
+    } else {
+      cx = state.moveStart.x;
+      cy = state.moveStart.y;
+    }
 
     if (altPressed) {
       const theta = ev.deltaY > 0 ? -0.1 : 0.1;
