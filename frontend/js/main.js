@@ -13,6 +13,7 @@ import { handleClickArc } from "./tools/arc.js";
 import { handleClickClip } from "./tools/clip.js";
 import { handleClickBucket } from "./tools/fill.js";
 import { rebuildIndex, pickShapeByPoint } from "./picker.js";
+let socket = null;
 
 const canvas = document.getElementById("canvas");
 initRender(canvas);
@@ -42,6 +43,30 @@ async function refresh() {
   } catch (e) {
     console.error("刷新失败：", e);
   }
+}
+
+function setupSocket() {
+  if (typeof io === "undefined") {
+    console.warn("Socket.IO 未加载，仍然使用 HTTP 刷新。");
+    return;
+  }
+
+  socket = io("http://127.0.0.1:5050");
+
+  socket.on("connect", () => {
+    console.log("WebSocket 已连接");
+    socket.emit("subscribe_points");
+  });
+
+  socket.on("points_update", (pts) => {
+    // pts 结构 = getPoints() 返回值
+    state.set({ cachedPts: pts });
+    rebuildIndex();
+  });
+
+  socket.on("disconnect", () => {
+    console.log("WebSocket 断开");
+  });
 }
 
 function updateToolbarActive() {
@@ -219,6 +244,8 @@ onChange(() => {
   updateToolbarActive();
   paintAll();
 });
+
+setupSocket();
 
 // 第一次加载
 refresh();

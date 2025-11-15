@@ -1,5 +1,5 @@
 from flask import Flask
-from .extensions import init_extensions
+from .extensions import init_extensions, socketio
 from .api.v1.shapes import bp as shapes_bp
 from pathlib import Path
 

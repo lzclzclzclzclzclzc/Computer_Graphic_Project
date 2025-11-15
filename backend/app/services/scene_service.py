@@ -6,6 +6,7 @@ from ..domain.scene import Scene
 from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon, BSpline,FillBlob, Arc
 from ..domain.fill import scanline_flood_fill
 from uuid import uuid4
+from ..extensions import socketio
 
 HEX = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$")
 
@@ -53,6 +54,20 @@ class SceneService:
     def __init__(self, scene: Scene):
         self.scene = scene
 
+    def _broadcast_points(self, pts: Optional[list[dict]] = None) -> list[dict]:
+        """
+        把当前场景（或给定 pts）通过 WebSocket 推送给所有客户端，
+        并把 pts 返回给调用者。
+        """
+        # ⭐ 注意：这里要用 scene.flatten_points，不是再调用 _broadcast_points 自己！
+        if pts is None:
+            pts = self.scene.flatten_points()
+        try:
+            socketio.emit("points_update", pts)
+        except Exception as e:
+            print("[SceneService] broadcast points_update failed:", e)
+        return pts
+
     # -------------------------
     # 创建各种图形
     # -------------------------
@@ -75,7 +90,7 @@ class SceneService:
             dash_off=off,
         )
         self.scene.add(line)
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
     def add_rect(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
@@ -93,7 +108,7 @@ class SceneService:
             pen_width=w, style=s, dash_on=on, dash_off=off
         )
         self.scene.add(rect)
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
     def add_circle(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
@@ -113,7 +128,7 @@ class SceneService:
             pen_width=w, style=s, dash_on=on, dash_off=off
         )
         self.scene.add(circle)
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
     def add_bezier(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
@@ -130,7 +145,7 @@ class SceneService:
         off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
         bezier = Bezier(points=pts, color=c, pen_width=w,style=s, dash_on=on, dash_off=off)
         self.scene.add(bezier)
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
     def add_polygon(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
         """
@@ -147,8 +162,8 @@ class SceneService:
         off = int(dash_off if dash_off is not None else d.get("dash_off", 0) or 0)
         polygon = Polygon(points=pts, color=c, pen_width=w,style=s, dash_on=on, dash_off=off)
         self.scene.add(polygon)
-        return self.scene.flatten_points()
-    
+        return self._broadcast_points()
+
     def add_bspline(
         self,
         d: Dict,
@@ -175,7 +190,7 @@ class SceneService:
         bspline = BSpline(points=pts, order = degree + 1, color=c, pen_width=w,style=s, dash_on=on, dash_off=off)
         self.scene.add(bspline)
 
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
 
     def add_arc(self, d: Dict, color: Optional[str] = None, width: Optional[int] = None,style: Optional[str] = None,dash_on: Optional[int] = None,dash_off: Optional[int] = None,) -> List[Dict]:
@@ -192,8 +207,8 @@ class SceneService:
             pen_width=w,style=s, dash_on=on, dash_off=off
         )
         self.scene.add(arc)
-        return self.scene.flatten_points()
-    
+        return self._broadcast_points()
+
     # -------------------------
     # 状态 / 绘制
     # -------------------------
@@ -201,7 +216,7 @@ class SceneService:
         """
         展场景，返回像素点（前端画布用）
         """
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
     def dump_scene_state(self) -> Dict:
         """
@@ -215,7 +230,7 @@ class SceneService:
     # -------------------------
     def translate_shape(self, shape_id: str, dx: float, dy: float) -> List[Dict]:
         pts = self.scene.translate_and_raster(shape_id, dx, dy)
-        return pts
+        return self._broadcast_points(pts)
 
     def rotate_shape(self, shape_id: str, theta: float, cx: float, cy: float) -> bool:
         """
@@ -248,7 +263,7 @@ class SceneService:
         # 1) 构建 read(x,y)：从当前场景的像素点映射出 RGBA
         rgba_bg = _to_rgba(bg_color)
         rgbamap = {}
-        for p in self.scene.flatten_points():
+        for p in self._broadcast_points():
             rgbamap[(int(p["x"]), int(p["y"]))] = _to_rgba(p["color"])
 
         def read(xx: int, yy: int):
@@ -267,7 +282,7 @@ class SceneService:
         )
 
         if not raw_pts:
-            return self.scene.flatten_points()
+            return self._broadcast_points()
 
         # 3) 转回你场景的颜色格式（仍用 hex），打包成 FillBlob 形状
         hex_color = _rgba_to_hex(rgba_new)
@@ -285,7 +300,7 @@ class SceneService:
         blob = FillBlob(id=fill_id, pixels=pixels, color=hex_color, pen_width=1)
         self.scene.add(blob)
 
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
     # services/scene_service.py 里加：
     def bucket_fill_meta(
@@ -295,7 +310,7 @@ class SceneService:
         # --- 基本逻辑与 bucket_fill 一致 ---
         rgba_bg = _to_rgba(bg_color)
         rgbamap = {}
-        for p in self.scene.flatten_points():
+        for p in self._broadcast_points():
             rgbamap[(int(p["x"]), int(p["y"]))] = _to_rgba(p["color"])
 
         def read(xx: int, yy: int):
@@ -311,7 +326,7 @@ class SceneService:
             pen_w=1, connectivity=int(connectivity), tol=int(tol)
         )
         if not raw_pts:
-            return {"points": self.scene.flatten_points(), "fill_id": None, "pixels": []}
+            return {"points": self._broadcast_points(), "fill_id": None, "pixels": []}
 
         hex_color = _rgba_to_hex(rgba_new)
         pixels = [{"x": p["x"], "y": p["y"], "color": hex_color, "id": fill_id, "w": 1} for p in raw_pts]
@@ -319,18 +334,18 @@ class SceneService:
         blob = FillBlob(pixels=pixels, color=hex_color, pen_width=1)
         self.scene.add(blob)
 
-        return {"points": self.scene.flatten_points(), "fill_id": fill_id, "pixels": pixels}
+        return {"points": self._broadcast_points(), "fill_id": fill_id, "pixels": pixels}
 
     # -------------------------
     # undo / clear
     # -------------------------
     def undo(self) -> List[Dict]:
         self.scene.undo()
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
     def clear(self) -> List[Dict]:
         self.scene.clear()
-        return self.scene.flatten_points()
+        return self._broadcast_points()
 
     def begin_transform_session(self):
         self.scene.begin_batch()
@@ -339,7 +354,17 @@ class SceneService:
         self.scene.end_batch()
 
     def clip_rect(self, shape_id, x1, y1, x2, y2):
-        return self.scene.clip_shape_by_rect_and_raster(shape_id, x1, y1, x2, y2)
+        pts = self.scene.clip_shape_by_rect_and_raster(shape_id, x1, y1, x2, y2)
+        return self._broadcast_points(pts)
+
+_scene_service_instance = None
+
+def get_scene_service():
+    global _scene_service_instance
+    if _scene_service_instance is None:
+        from ..domain.scene import Scene
+        _scene_service_instance = SceneService(Scene())
+    return _scene_service_instance
 
 
 
