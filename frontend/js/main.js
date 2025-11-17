@@ -15,6 +15,7 @@ import { handleClickBucket } from "./tools/fill.js";
 import { rebuildIndex, pickShapeByPoint } from "./picker.js";
 let socket = null;
 
+
 const canvas = document.getElementById("canvas");
 initRender(canvas);
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -52,6 +53,7 @@ function setupSocket() {
   }
 
   socket = io("http://127.0.0.1:5050");
+  window.socket = socket;
 
   socket.on("connect", () => {
     console.log("WebSocket 已连接");

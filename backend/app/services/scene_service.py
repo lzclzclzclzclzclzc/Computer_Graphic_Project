@@ -1,6 +1,8 @@
 # backend/app/services/scene_service.py
 
 import re
+import time
+import math
 from typing import Dict, List, Optional
 from ..domain.scene import Scene
 from ..domain.shapes import Line, Rectangle, Circle, Bezier, Polygon, BSpline,FillBlob, Arc
@@ -53,6 +55,8 @@ def _rgba_to_hex(c):
 class SceneService:
     def __init__(self, scene: Scene):
         self.scene = scene
+        self._animating = False
+        self._anim_task = None
 
     def _broadcast_points(self, pts: Optional[list[dict]] = None) -> list[dict]:
         """
@@ -244,6 +248,116 @@ class SceneService:
         """
         return self.scene.scale_shape(shape_id, sx, sy, cx, cy)
 
+    # -------------------------
+    # 动画：后端驱动旋转
+    # -------------------------
+    def start_rotation_animation(
+        self,
+        shape_id: str,
+        cx: float,
+        cy: float,
+        speed_rad_per_sec: float = math.pi / 2,
+        fps: float = 30.0,
+    ):
+        """
+        让某个图形绕 (cx, cy) 匀速旋转。
+        - shape_id: 要旋转的图形 id
+        - cx, cy:   旋转中心（像素坐标）
+        - speed_rad_per_sec: 角速度（弧度/秒）
+        - fps:      期望帧率
+        """
+        if self._animating:
+            # 暂时简单处理：有动画在跑就不再启动第二个
+            print("[SceneService] animation already running, ignore")
+            return
+
+        self._animating = True
+
+        def _loop():
+            print("[SceneService] rotation animation loop started for", shape_id)
+            last = time.time()
+            try:
+                while self._animating:
+                    now = time.time()
+                    dt = now - last
+                    last = now
+
+                    dtheta = speed_rad_per_sec * dt
+
+                    ok = self.scene.rotate_shape(shape_id, dtheta, cx, cy)
+                    if ok:
+                        pts = self.scene.flatten_points()
+                        socketio.emit("points_update", pts)
+                    else:
+                        # 找不到这个 shape，直接停掉动画
+                        print("[SceneService] rotate_shape failed, stop animation")
+                        self._animating = False
+                        break
+
+                    # 控制帧率
+                    socketio.sleep(1.0 / fps)
+            finally:
+                print("[SceneService] rotation animation loop finished")
+                self._animating = False
+
+        # 用 SocketIO 的后台任务来跑动画循环
+        self._anim_task = socketio.start_background_task(_loop)
+
+    # ============================
+    # 平移动画
+    # ============================
+    def start_translate_animation(
+        self,
+        shape_id: str,
+        vx: float,
+        vy: float,
+        fps: float = 30.0,
+    ):
+        """让指定图形以 (vx, vy) 像素/秒匀速平移"""
+        if self._animating:
+            print("[SceneService] animation already running")
+            return
+
+        self._animating = True
+
+        def _loop():
+            print(f"[SceneService] translate animation loop started for {shape_id}")
+            last = time.time()
+
+            try:
+                while self._animating:
+                    now = time.time()
+                    dt = now - last
+                    last = now
+
+                    dx = vx * dt
+                    dy = vy * dt
+
+                    ok = self.scene.translate_shape(shape_id, dx, dy)
+                    if not ok:
+                        print("[SceneService] translate_shape failed, stop animation")
+                        break
+
+                    pts = self.scene.flatten_points()
+                    socketio.emit("points_update", pts)
+
+                    socketio.sleep(1.0 / fps)
+
+            finally:
+                print("[SceneService] translate animation loop finished")
+                self._animating = False
+
+        # 启动后台线程
+        socketio.start_background_task(_loop)
+
+
+    def stop_animation(self):
+        """
+        请求停止当前动画。
+        """
+        if self._animating:
+            print("[SceneService] stop_animation requested")
+        self._animating = False
 
     def bucket_fill(
             self,

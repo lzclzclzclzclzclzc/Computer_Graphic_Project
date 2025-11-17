@@ -1,11 +1,12 @@
 from flask import Blueprint, request, jsonify
 from ...domain.scene import Scene
-from ...services.scene_service import SceneService
+from ...services.scene_service import SceneService, get_scene_service
 
 bp = Blueprint("shapes", __name__, url_prefix="/api/v1")
 
 _scene = Scene()
-svc = SceneService(_scene)
+# svc = SceneService(_scene)
+svc = get_scene_service()
 
 
 def _int(v, default):

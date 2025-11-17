@@ -76,5 +76,16 @@
   </div>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script type="module" src="/js/main.js"></script>
+<script>
+  window.socket = io();
+
+  socket.on("connect", () => {
+    console.log("WS connected!");
+  });
+
+  socket.on("points_update", (points) => {
+    console.log("received points:", points.length);
+  });
+</script>
 </body>
 </html>
