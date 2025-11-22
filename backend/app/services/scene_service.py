@@ -55,8 +55,13 @@ def _rgba_to_hex(c):
 class SceneService:
     def __init__(self, scene: Scene):
         self.scene = scene
-        self._animating = False
-        self._anim_task = None
+        # 旋转动画：shape_id -> 是否在转
+        self._rot_animating = {}  # dict[str, bool]
+        self._rot_tasks = {}  # dict[str, socketio task]
+
+        # 平移动画：shape_id -> 是否在动
+        self._trans_animating = {}  # dict[str, bool]
+        self._trans_tasks = {}  # dict[str, socketio task]
 
     def _broadcast_points(self, pts: Optional[list[dict]] = None) -> list[dict]:
         """
@@ -248,84 +253,128 @@ class SceneService:
         """
         return self.scene.scale_shape(shape_id, sx, sy, cx, cy)
 
+        # 统一检查某个 shape_id 是否存在
+    def _shape_exists(self, shape_id: str) -> bool:
+        # 1) 如果你的 Scene 有 get_shape_by_id，优先用
+        if hasattr(self.scene, "get_shape_by_id"):
+            shape = self.scene.get_shape_by_id(shape_id)
+            exists = shape is not None
+            print("[SceneService] _shape_exists(get_shape_by_id):", shape_id, "=>", exists)
+            return exists
+
+        # 2) 否则尝试从 scene.shapes / scene.get_shapes() 找
+        shapes = None
+        if hasattr(self.scene, "shapes"):
+            shapes = self.scene.shapes
+        elif hasattr(self.scene, "get_shapes"):
+            shapes = self.scene.get_shapes()
+
+        if shapes is not None:
+            ids = []
+            for s in shapes:
+                sid = None
+                # class 对象
+                if hasattr(s, "id"):
+                    sid = getattr(s, "id")
+                # dict 对象
+                elif isinstance(s, dict):
+                    sid = s.get("id")
+
+                ids.append(sid)
+                if sid == shape_id:
+                    print("[SceneService] _shape_exists(list):", shape_id, "=> True")
+                    return True
+
+            print("[SceneService] _shape_exists(list): not found", shape_id,
+                  "current ids =", ids)
+            return False
+
+        # 3) 实在不知道 scene 的结构，就先不做存在性检查（避免误判）
+        print("[SceneService] _shape_exists: no known shape storage, skip check")
+        return True
+
     # -------------------------
-    # 动画：后端驱动旋转
+    # 多图形旋转动画（可并行）
     # -------------------------
     def start_rotation_animation(
-        self,
-        shape_id: str,
-        cx: float,
-        cy: float,
-        speed_rad_per_sec: float = math.pi / 2,
-        fps: float = 30.0,
+            self,
+            shape_id: str,
+            cx: float,
+            cy: float,
+            speed_rad_per_sec: float = math.pi / 2,
+            fps: float = 30.0,
     ):
         """
         让某个图形绕 (cx, cy) 匀速旋转。
-        - shape_id: 要旋转的图形 id
-        - cx, cy:   旋转中心（像素坐标）
-        - speed_rad_per_sec: 角速度（弧度/秒）
-        - fps:      期望帧率
+        支持多个 shape 同时旋转：每个 shape_id 一个独立任务。
         """
-        if self._animating:
-            # 暂时简单处理：有动画在跑就不再启动第二个
-            print("[SceneService] animation already running, ignore")
-            return
 
-        self._animating = True
+        # 已经在转了就不重复启动（需要重启的话可以先 stop 再 start）
+        if self._rot_animating.get(shape_id):
+            print("[SceneService] rotation already running for", shape_id)
+            return False
 
-        def _loop():
-            print("[SceneService] rotation animation loop started for", shape_id)
+        self._rot_animating[shape_id] = True
+
+        def _loop(sid: str):
+            print("[SceneService] rotation animation loop started for", sid)
             last = time.time()
             try:
-                while self._animating:
+                while self._rot_animating.get(sid):
                     now = time.time()
                     dt = now - last
                     last = now
 
                     dtheta = speed_rad_per_sec * dt
 
-                    ok = self.scene.rotate_shape(shape_id, dtheta, cx, cy)
-                    if ok:
-                        pts = self.scene.flatten_points()
-                        socketio.emit("points_update", pts)
-                    else:
-                        # 找不到这个 shape，直接停掉动画
-                        print("[SceneService] rotate_shape failed, stop animation")
-                        self._animating = False
+                    ok = self.scene.rotate_shape(sid, dtheta, cx, cy)
+                    if not ok:
+                        print("[SceneService] rotate_shape failed, stop animation for", sid)
+                        self._rot_animating[sid] = False
                         break
 
-                    # 控制帧率
+                    try:
+                        pts = self.scene.flatten_points()
+                        socketio.emit("points_update", pts)
+                    except Exception as e:
+                        print("[SceneService] rotation emit ERROR:", repr(e))
+
                     socketio.sleep(1.0 / fps)
             finally:
-                print("[SceneService] rotation animation loop finished")
-                self._animating = False
+                print("[SceneService] rotation animation loop finished for", sid)
+                self._rot_animating.pop(sid, None)
+                self._rot_tasks.pop(sid, None)
 
-        # 用 SocketIO 的后台任务来跑动画循环
-        self._anim_task = socketio.start_background_task(_loop)
+        task = socketio.start_background_task(_loop, shape_id)
+        self._rot_tasks[shape_id] = task
+        return True
 
     # ============================
-    # 平移动画
+    # 多图形平移动画（可并行）
     # ============================
     def start_translate_animation(
-        self,
-        shape_id: str,
-        vx: float,
-        vy: float,
-        fps: float = 30.0,
+            self,
+            shape_id: str,
+            vx: float,
+            vy: float,
+            fps: float = 30.0,
     ):
-        """让指定图形以 (vx, vy) 像素/秒匀速平移"""
-        if self._animating:
-            print("[SceneService] animation already running")
-            return
+        """
+        让指定图形以 (vx, vy) 像素/秒匀速平移。
+        支持多个 shape 同时平移。
+        """
 
-        self._animating = True
+        if self._trans_animating.get(shape_id):
+            print("[SceneService] translate already running for", shape_id)
+            return False
 
-        def _loop():
-            print(f"[SceneService] translate animation loop started for {shape_id}")
+        self._trans_animating[shape_id] = True
+
+        def _loop(sid: str):
+            print(f"[SceneService] translate animation loop started for {sid}")
             last = time.time()
-
             try:
-                while self._animating:
+                while self._trans_animating.get(sid):
                     now = time.time()
                     dt = now - last
                     last = now
@@ -333,32 +382,45 @@ class SceneService:
                     dx = vx * dt
                     dy = vy * dt
 
-                    ok = self.scene.translate_shape(shape_id, dx, dy)
+                    ok = self.scene.translate_shape(sid, dx, dy)
                     if not ok:
-                        print("[SceneService] translate_shape failed, stop animation")
+                        print("[SceneService] translate_shape failed, stop animation for", sid)
+                        self._trans_animating[sid] = False
                         break
 
-                    pts = self.scene.flatten_points()
-                    socketio.emit("points_update", pts)
+                    try:
+                        pts = self.scene.flatten_points()
+                        socketio.emit("points_update", pts)
+                    except Exception as e:
+                        print("[SceneService] translate emit ERROR:", repr(e))
 
                     socketio.sleep(1.0 / fps)
-
             finally:
-                print("[SceneService] translate animation loop finished")
-                self._animating = False
+                print("[SceneService] translate animation loop finished for", sid)
+                self._trans_animating.pop(sid, None)
+                self._trans_tasks.pop(sid, None)
 
-        # 启动后台线程
-        socketio.start_background_task(_loop)
+        task = socketio.start_background_task(_loop, shape_id)
+        self._trans_tasks[shape_id] = task
+        return True
 
-
+    # ============================
+    # 停止所有动画
+    # ============================
     def stop_animation(self):
         """
-        请求停止当前动画。
+        停止所有图形的所有动画（旋转 + 平移）。
+        与 ws.py 里不带 id 的 stop_animation 一致。
         """
-        if self._animating:
-            print("[SceneService] stop_animation requested")
-        self._animating = False
+        if self._rot_animating or self._trans_animating:
+            print("[SceneService] stop_animation requested for ALL")
 
+        for sid in list(self._rot_animating.keys()):
+            self._rot_animating[sid] = False
+
+        for sid in list(self._trans_animating.keys()):
+            self._trans_animating[sid] = False
+            
     def bucket_fill(
             self,
             x: int,

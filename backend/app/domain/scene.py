@@ -1,5 +1,5 @@
 # backend/app/domain/scene.py
-
+import math
 from typing import List, Dict, Optional
 import copy
 from .shapes import Shape, Polygon
@@ -131,24 +131,161 @@ class Scene:
 
         return True
 
-    def rotate_shape(self, shape_id: str, theta_rad: float, cx: float, cy: float) -> bool:
+    # ======================================================
+    # 帮助函数：根据 shape_id 在场景中找到图形
+    # ======================================================
+    def _find_shape(self, shape_id):
         """
-        绕 (cx, cy) 旋转某个 shape。
-        这个 (cx, cy) 应该来自前端，比如你前端的 center_point。
+        根据 id 在 Scene 中查找图形。
+        兼容两种常见存储方式：
+        - self.shapes 是 list：[shape, shape, ...]
+        - self.shapes 是 dict：{ id: shape, ... }
+        shape 可以是 dict，也可以是带 id 属性的对象。
         """
-        if shape_id not in self._shapes:
+        # 优先使用 self.shapes；如果你项目里用的是别的名字，比如 self._shapes，可以按需改一下
+        container = None
+        if hasattr(self, "shapes"):
+            container = self.shapes
+        elif hasattr(self, "_shapes"):
+            container = self._shapes
+
+        if container is None:
+            print("[Scene] _find_shape: no shapes container on Scene")
+            return None
+
+        # dict: {id: shape}
+        if isinstance(container, dict):
+            shape = container.get(shape_id)
+            if shape is None:
+                print("[Scene] _find_shape(dict): not found", shape_id,
+                      "keys =", list(container.keys()))
+            else:
+                print("[Scene] _find_shape(dict): found", shape_id)
+            return shape
+
+        # list / tuple: [shape, shape, ...]
+        if isinstance(container, (list, tuple)):
+            all_ids = []
+            for s in container:
+                sid = None
+                if isinstance(s, dict):
+                    sid = s.get("id")
+                else:
+                    sid = getattr(s, "id", None)
+                all_ids.append(sid)
+                if sid == shape_id:
+                    print("[Scene] _find_shape(list): found", shape_id)
+                    return s
+
+            print("[Scene] _find_shape(list): not found", shape_id, "current ids =", all_ids)
+            return None
+
+        print("[Scene] _find_shape: unsupported shapes container type:", type(container))
+        return None
+
+    def rotate_shape(self, shape_id: str, dtheta: float, cx: float, cy: float) -> bool:
+        """
+        让指定图形绕全局点 (cx, cy) 旋转 dtheta（弧度）。
+        通过更新图形的 transform 矩阵来实现：
+        - 如果 transform 是 dict，则使用键 a,b,c,d,tx,ty
+        - 如果 transform 是任意有 a/b/c/d/tx/ty 属性的对象（比如 Mat2x3），则用属性访问
+        """
+
+        shape = self._find_shape(shape_id)
+        if shape is None:
+            print("[Scene] rotate_shape: shape not found:", shape_id)
             return False
-        if theta_rad == 0:
+
+        # type 只是为了日志观测
+        if isinstance(shape, dict):
+            shape_type = shape.get("type")
+            transform = shape.get("transform")
+        else:
+            shape_type = getattr(shape, "type", None)
+            transform = getattr(shape, "transform", None)
+
+        print(
+            "[Scene] rotate_shape: before",
+            "id=", shape_id,
+            "type=", shape_type,
+            "dtheta=", dtheta,
+            "center=(", cx, ",", cy, ")",
+        )
+
+        # 如果没有 transform，就初始化一个单位矩阵（用 dict）
+        if transform is None:
+            transform = {"a": 1.0, "b": 0.0, "c": 0.0, "d": 1.0, "tx": 0.0, "ty": 0.0}
+            if isinstance(shape, dict):
+                shape["transform"] = transform
+            else:
+                setattr(shape, "transform", transform)
+
+        # 读取当前矩阵：兼容 dict 和“长得像 Mat2x3 的对象”
+        try:
+            if isinstance(transform, dict):
+                a = float(transform.get("a", 1.0))
+                b = float(transform.get("b", 0.0))
+                c = float(transform.get("c", 0.0))
+                d = float(transform.get("d", 1.0))
+                tx = float(transform.get("tx", 0.0))
+                ty = float(transform.get("ty", 0.0))
+                mode = "dict"
+            elif all(hasattr(transform, attr) for attr in ("a", "b", "c", "d", "tx", "ty")):
+                # Mat2x3 或任意有这些属性的对象
+                a = float(transform.a)
+                b = float(transform.b)
+                c = float(transform.c)
+                d = float(transform.d)
+                tx = float(transform.tx)
+                ty = float(transform.ty)
+                mode = "obj"
+            else:
+                print("[Scene] rotate_shape: unsupported transform type:", type(transform))
+                return False
+        except Exception as e:
+            print("[Scene] rotate_shape: invalid transform:", repr(e))
             return False
 
-        self._snapshot_for_undo()
+        # 构造绕 (cx,cy) 旋转 dtheta 的矩阵
+        cos_t = math.cos(dtheta)
+        sin_t = math.sin(dtheta)
 
-        shp = self._shapes[shape_id]
-        shp.rotate(theta_rad, cx, cy)
+        # 旋转矩阵 R
+        r00 = cos_t
+        r01 = -sin_t
+        r10 = sin_t
+        r11 = cos_t
 
-        self._redo.clear()
+        # 新线性矩阵 = R * [[a, c],[b, d]]
+        na = r00 * a + r01 * b
+        nb = r10 * a + r11 * b
+        nc = r00 * c + r01 * d
+        nd = r10 * c + r11 * d
+
+        # 平移部分：把原来的 (tx,ty) 绕 (cx,cy) 旋转一小步
+        dx = tx - cx
+        dy = ty - cy
+        ntx = cx + dx * cos_t - dy * sin_t
+        nty = cy + dx * sin_t + dy * cos_t
+
+        # 回写 transform
+        if mode == "dict":
+            transform["a"] = na
+            transform["b"] = nb
+            transform["c"] = nc
+            transform["d"] = nd
+            transform["tx"] = ntx
+            transform["ty"] = nty
+        else:  # "obj"：Mat2x3 等
+            transform.a = na
+            transform.b = nb
+            transform.c = nc
+            transform.d = nd
+            transform.tx = ntx
+            transform.ty = nty
+
+        print("[Scene] rotate_shape: success for", shape_id, "new transform=", transform)
         return True
-
     def scale_shape(self, shape_id: str, sx: float, sy: float, cx: float, cy: float) -> bool:
         """
         围绕 (cx, cy) 做缩放。
