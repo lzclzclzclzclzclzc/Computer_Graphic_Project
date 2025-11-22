@@ -47,3 +47,7 @@ socket.emit("start_rotation_animation", {
 // 再停
 socket.emit("stop_animation");
 ```
+MCP使用(chatGPT)：
+1. 先启动后端并运行MCP/server.py
+2. ngrok http 12345
+3. MCP 添加(设置->连接器与应用->开发者模式->添加)
